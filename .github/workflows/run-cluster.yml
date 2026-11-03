@@ -54,6 +54,27 @@ jobs:
           claude plugin marketplace add anthropics/claude-plugins-official >/dev/null
           claude plugin install superpowers@claude-plugins-official >/dev/null && echo "superpowers ok"
 
+      # Máy ảo để Claude CHẠY APP thật + chụp hình. Boot nền, Claude tự chờ (adb wait-for-device / simctl bootstatus).
+      - name: device
+        run: |
+          mkdir -p /tmp/shots
+          case "$PLATFORM" in
+            android)
+              echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules >/dev/null
+              sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+              echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"; echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
+              img="system-images;android-34;google_apis;x86_64"
+              yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$img" emulator platform-tools >/dev/null 2>&1
+              echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n ci -k "$img" -d pixel_6 >/dev/null
+              nohup "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect >/tmp/emu.log 2>&1 &
+              echo "emulator đang boot" ;;
+            ios)
+              udid=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | .value[] | select(.name | test("^iPhone"))][-1].udid')
+              xcrun simctl boot "$udid" && echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
+              brew install -q cameroncooke/axe/axe >/dev/null 2>&1 && echo "axe ok" || echo "không có axe" ;;
+            *) echo "không cần máy ảo" ;;
+          esac
+
       - name: claude
         working-directory: vibecut
         timeout-minutes: 335
@@ -65,7 +86,7 @@ jobs:
           export TEST_CMD=$(jq -r --arg p "$PLATFORM" '.[$p].test' ../runner/platforms.json)
           # Chỉ cho Claude dùng danh sách lệnh dưới; lệnh ngoài danh sách bị từ chối → Claude ghi BỎ QUA/need-human.
           # ponytail: allowlist tĩnh; thiếu lệnh nào (vd ruby cho xcodeproj) thì thêm vào đây.
-          allowed="Read,Edit,Write,Glob,Grep,Skill,TodoWrite,Agent,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*)"
+          allowed="Read,Edit,Write,Glob,Grep,Skill,TodoWrite,Agent,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*),Bash(adb:*),Bash(open:*),Bash(screencapture:*),Bash(pkill:*),Bash(mkdir:*),Bash(cp:*),Bash(sleep:*),Bash(sips:*),Bash(axe:*)"
           left() { gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true; }
           # Vòng ngoài: Claude dừng sớm mà còn task + còn giờ → mở phiên MỚI (đọc lại issue) làm tiếp.
           # ponytail: dừng khi 1 vòng không có commit lẫn tick nào (task còn lại đều BỎ QUA / bế tắc hạ tầng).
@@ -92,6 +113,23 @@ jobs:
           # Tóm tắt của Claude đăng vào issue PRIVATE (không ra log public).
           summary=$(for f in ../claude-*.json; do jq -r '.result // empty' "$f" 2>/dev/null; done)
           [ -n "$summary" ] || summary="Claude dừng không có tóm tắt (có thể hết hạn mức hoặc hết giờ). $(tail -c 400 ../claude.err 2>/dev/null)"
+          # Ảnh chụp app → nhánh mồ côi ci-shots của repo PRIVATE (không vào main, không ra log public), nhúng vào comment.
+          shots=""
+          if ls /tmp/shots/*.png >/dev/null 2>&1; then
+            dir="issue-$ISSUE/$GITHUB_RUN_ID"
+            if git fetch -q --depth 1 origin ci-shots 2>/dev/null; then git worktree add -q ../shots FETCH_HEAD
+            else git worktree add -q --detach ../shots && (cd ../shots && git checkout -q --orphan ci-shots && git rm -rfq .); fi
+            mkdir -p "../shots/$dir" && cp /tmp/shots/*.png "../shots/$dir/"
+            (cd ../shots && git add -A && git -c core.hooksPath=/dev/null commit -qm "ảnh issue #$ISSUE" && git push -q origin HEAD:ci-shots) \
+              && for f in /tmp/shots/*.png; do
+                   n=$(basename "$f"); cap=$(cat "${f%.png}.md" 2>/dev/null)
+                   shots="$shots
+          **${cap:-$n}**
+          ![$n](https://github.com/$REPO/blob/ci-shots/$dir/$n?raw=true)"
+                 done
+          fi
+          summary="$summary
+          $shots"
           gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}
 
           $summary" >/dev/null

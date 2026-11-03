@@ -8,9 +8,9 @@ Quy trình — lặp cho tới khi hết task hoặc hết giờ:
    trong repo thì đọc file đó. Comment cũ của runner cho biết lượt trước đã vướng gì.
    Không có người để hỏi nên KHÔNG dùng brainstorming. Lên plan bằng `superpowers:writing-plans` (ghi ra
    `/tmp/plan-issue.md`, không commit), rồi làm theo plan bằng `superpowers:executing-plans`.
-   Báo tiến độ để owner xem trực tiếp: mỗi khi BẮT ĐẦU một task và mỗi khi đổi giai đoạn (plan → viết test →
-   code → test xanh/đỏ → chạy app), `gh issue comment $ISSUE -R $REPO --edit-last --create-if-none --body "<giờ> · Task <n>: <đang làm gì, 1 dòng>"`
-   (sửa đè 1 comment tiến độ, không spam).
+   Báo tiến độ để owner xem trực tiếp: khi BẮT ĐẦU và khi XONG/BỎ mỗi task, 1 comment 1 dòng:
+   `gh issue comment $ISSUE -R $REPO --body "▶ Task <n>: bắt đầu — <plan 1 dòng>"` / `"✔ Task <n>: xong — <test gì xanh>"`.
+   KHÔNG dùng --edit-last (token chung tài khoản owner → sẽ sửa đè comment của owner).
 2. Lấy task đầu tiên còn `- [ ]` (bỏ qua task đã có comment "BỎ QUA" của runner). Làm theo CLAUDE.md và các
    skill trong `.claude/skills/` của repo (skill nào khớp task thì đọc trước khi sửa). Dùng superpowers:
    bug → `superpowers:systematic-debugging`; mọi task code → `superpowers:test-driven-development`:

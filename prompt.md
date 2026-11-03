@@ -15,9 +15,12 @@ Quy trình — lặp cho tới khi hết task hoặc hết giờ:
    - `git push origin HEAD`
    - Tick đúng ô: `gh issue view $ISSUE -R $REPO --json body -q .body > /tmp/body.md`, đổi `- [ ]` của task
      đó thành `- [x]`, rồi `gh issue edit $ISSUE -R $REPO --body-file /tmp/body.md`.
-5. Không làm được (thử 3 hướng vẫn fail, cần quyết định của owner, cần secret/máy thật/thiết bị):
+   Test/build ĐỎ → đọc lỗi, sửa, chạy lại — LẶP sửa → test cho tới khi XANH. Không được dừng vì "khó" hay
+   "đã thử nhiều lần"; đổi hướng nếu hướng cũ bế tắc, nhưng vẫn lặp. Không tick, không sang task kế khi còn đỏ.
+5. CHỈ được bỏ task khi bị chặn bởi thứ NGOÀI tầm code (thiếu secret/credential, cần máy thật/thiết bị, cần owner
+   quyết, việc nguy hiểm). Trước khi bỏ phải chứng minh: lỗi vẫn y hệt trên HEAD sạch (`git stash` rồi chạy lại). Khi đó:
    `git reset --hard HEAD && git clean -fd`, comment `BỎ QUA: <task> — <lý do ngắn>` vào issue, sang task kế. Không tick.
-6. Trước khi bắt đầu mỗi task: nếu `$(date +%s)` cách $DEADLINE dưới 1200 giây thì DỪNG.
+6. KHÔNG kết thúc phiên khi còn task `- [ ]` chưa có comment BỎ QUA và còn giờ. Trước khi bắt đầu mỗi task: nếu `$(date +%s)` cách $DEADLINE dưới 1200 giây thì DỪNG.
 
 Cấm: push vào main, force push, sửa ngoài phạm vi task, đụng R2/CDN/DB production, in secret/token ra.
 

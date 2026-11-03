@@ -62,10 +62,20 @@ jobs:
           # Chỉ cho Claude dùng danh sách lệnh dưới; lệnh ngoài danh sách bị từ chối → Claude ghi BỎ QUA/need-human.
           # ponytail: allowlist tĩnh; thiếu lệnh nào (vd ruby cho xcodeproj) thì thêm vào đây.
           allowed="Read,Edit,Write,Glob,Grep,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*)"
-          # Output chỉ ghi ra file — KHÔNG in console.
-          claude -p "$(cat ../runner/prompt.md)" --allowedTools "$allowed" --add-dir /tmp \
-            --output-format json > ../claude.json 2> ../claude.err
-          echo "claude exit=$?"
+          left() { gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true; }
+          # Vòng ngoài: Claude dừng sớm mà còn task + còn giờ → mở phiên MỚI (đọc lại issue) làm tiếp.
+          # ponytail: dừng khi 1 vòng không có commit lẫn tick nào (task còn lại đều BỎ QUA / bế tắc hạ tầng).
+          round=0
+          while :; do
+            round=$((round + 1)); c0=$(git rev-list --count HEAD); l0=$(left)
+            # Output chỉ ghi ra file — KHÔNG in console.
+            claude -p "$(cat ../runner/prompt.md)" --allowedTools "$allowed" --add-dir /tmp \
+              --output-format json > "../claude-$round.json" 2>> ../claude.err
+            l1=$(left); echo "vòng $round: exit=$? còn $l1 task"
+            [ "$l1" = 0 ] && break
+            [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
+            [ "$(git rev-list --count HEAD)" = "$c0" ] && [ "$l1" = "$l0" ] && break
+          done
 
       - name: wrap
         if: always()
@@ -76,7 +86,7 @@ jobs:
             || gh pr create -R "$REPO" --head "$BRANCH" --base main \
                  --title "CI: issue #$ISSUE" --body "Closes #$ISSUE" 2>/dev/null || true)
           # Tóm tắt của Claude đăng vào issue PRIVATE (không ra log public).
-          summary=$(jq -r '.result // empty' ../claude.json 2>/dev/null)
+          summary=$(for f in ../claude-*.json; do jq -r '.result // empty' "$f" 2>/dev/null; done)
           [ -n "$summary" ] || summary="Claude dừng không có tóm tắt (có thể hết hạn mức hoặc hết giờ). $(tail -c 400 ../claude.err 2>/dev/null)"
           gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}
 

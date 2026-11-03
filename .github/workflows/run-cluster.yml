@@ -18,7 +18,6 @@ jobs:
       REPO: nguyenphp/vibecut
       ISSUE: ${{ inputs.issue }}
       PLATFORM: ${{ inputs.platform }}
-      BRANCH: ci/issue-${{ inputs.issue }}
       # SDK quảng cáo Tevo (io.mmonetize) nằm ở Nexus riêng; thiếu thì gradle không resolve được.
       ORG_GRADLE_PROJECT_tevoNexusMavenUrl: ${{ secrets.TEVO_NEXUS_URL }}
       ORG_GRADLE_PROJECT_tevoNexusUsername: ${{ secrets.TEVO_NEXUS_USERNAME }}
@@ -30,15 +29,12 @@ jobs:
       - uses: actions/checkout@v4
         with: { repository: nguyenphp/vibecut, token: '${{ secrets.VIBECUT_PAT }}', path: vibecut, fetch-depth: 1 }
 
-      - name: branch
+      - name: git
         working-directory: vibecut
         run: |
           git config core.hooksPath .githooks
           git config user.name cutcut-runner
           git config user.email 62367533+nguyenphp@users.noreply.github.com
-          if git fetch -q --depth 1 origin "$BRANCH" 2>/dev/null; then git checkout -qB "$BRANCH" FETCH_HEAD
-          else git checkout -qb "$BRANCH"; fi
-          echo "LEFT_BEFORE=$(gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true)" >> "$GITHUB_ENV"
 
       - name: xcode
         if: inputs.platform == 'ios' || inputs.platform == 'mac'
@@ -75,6 +71,7 @@ jobs:
             *) echo "không cần máy ảo" ;;
           esac
 
+      # 1 job chạy trọn ~6 tiếng: xong issue này còn giờ thì nhận tiếp issue chờ cùng nền tảng.
       - name: claude
         working-directory: vibecut
         timeout-minutes: 335
@@ -86,62 +83,25 @@ jobs:
           export TEST_CMD=$(jq -r --arg p "$PLATFORM" '.[$p].test' ../runner/platforms.json)
           # Chỉ cho Claude dùng danh sách lệnh dưới; lệnh ngoài danh sách bị từ chối → Claude ghi BỎ QUA/need-human.
           # ponytail: allowlist tĩnh; thiếu lệnh nào (vd ruby cho xcodeproj) thì thêm vào đây.
-          allowed="Read,Edit,Write,Glob,Grep,Skill,TodoWrite,Agent,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*),Bash(adb:*),Bash(open:*),Bash(screencapture:*),Bash(pkill:*),Bash(mkdir:*),Bash(cp:*),Bash(sleep:*),Bash(sips:*),Bash(axe:*)"
-          left() { gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true; }
-          # Vòng ngoài: Claude dừng sớm mà còn task + còn giờ → mở phiên MỚI (đọc lại issue) làm tiếp.
-          # ponytail: dừng khi 1 vòng không có commit lẫn tick nào (task còn lại đều BỎ QUA / bế tắc hạ tầng).
-          round=0
+          export ALLOWED="Read,Edit,Write,Glob,Grep,Skill,TodoWrite,Agent,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*),Bash(adb:*),Bash(open:*),Bash(screencapture:*),Bash(pkill:*),Bash(mkdir:*),Bash(cp:*),Bash(sleep:*),Bash(sips:*),Bash(axe:*)"
           while :; do
-            round=$((round + 1)); c0=$(git rev-list --count HEAD); l0=$(left)
-            # Output chỉ ghi ra file — KHÔNG in console.
-            claude -p "$(cat ../runner/prompt.md)" --allowedTools "$allowed" --add-dir /tmp \
-              --output-format json > "../claude-$round.json" 2>> ../claude.err
-            rc=$?; l1=$(left); echo "vòng $round: exit=$rc còn $l1 task"
-            [ "$l1" = 0 ] && break
-            [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
-            [ "$(git rev-list --count HEAD)" = "$c0" ] && [ "$l1" = "$l0" ] && break
+            bash ../runner/scripts/work-issue.sh
+            [ $(( DEADLINE - $(date +%s) )) -lt 1800 ] && { echo "còn dưới 30 phút, không nhận thêm"; break; }
+            next=$(bash ../runner/scripts/claim-next.sh); [ -n "$next" ] || { echo "hết issue chờ"; break; }
+            export ISSUE=$next; echo "nhận tiếp issue #$ISSUE"
           done
 
-      - name: wrap
+      # Job bị cắt ngang (hết giờ/huỷ) giữa issue: đẩy phần đã commit, nhả label để lượt sau làm tiếp.
+      - name: release
         if: always()
         working-directory: vibecut
         run: |
-          git push -q origin "HEAD:$BRANCH" 2>/dev/null || true
-          pr=$(gh pr view "$BRANCH" -R "$REPO" --json url -q .url 2>/dev/null \
-            || gh pr create -R "$REPO" --head "$BRANCH" --base main \
-                 --title "CI: issue #$ISSUE" --body "Closes #$ISSUE" 2>/dev/null || true)
-          # Tóm tắt của Claude đăng vào issue PRIVATE (không ra log public).
-          summary=$(for f in ../claude-*.json; do jq -r '.result // empty' "$f" 2>/dev/null; done)
-          [ -n "$summary" ] || summary="Claude dừng không có tóm tắt (có thể hết hạn mức hoặc hết giờ). $(tail -c 400 ../claude.err 2>/dev/null)"
-          # Ảnh chụp app → nhánh mồ côi ci-shots của repo PRIVATE (không vào main, không ra log public), nhúng vào comment.
-          shots=""
-          if ls /tmp/shots/*.png >/dev/null 2>&1; then
-            dir="issue-$ISSUE/$GITHUB_RUN_ID"
-            if git fetch -q --depth 1 origin ci-shots 2>/dev/null; then git worktree add -q ../shots FETCH_HEAD
-            else git worktree add -q --detach ../shots && (cd ../shots && git checkout -q --orphan ci-shots && git rm -rfq .); fi
-            mkdir -p "../shots/$dir" && cp /tmp/shots/*.png "../shots/$dir/"
-            (cd ../shots && git add -A && git -c core.hooksPath=/dev/null commit -qm "ảnh issue #$ISSUE" && git push -q origin HEAD:ci-shots) \
-              && for f in /tmp/shots/*.png; do
-                   n=$(basename "$f"); cap=$(cat "${f%.png}.md" 2>/dev/null)
-                   shots="$shots
-          **${cap:-$n}**
-          ![$n](https://github.com/$REPO/blob/ci-shots/$dir/$n?raw=true)"
-                 done
-          fi
-          summary="$summary
-          $shots"
-          gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}
-
-          $summary" >/dev/null
-          left=$(gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true)
-          if [ "$left" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null
-          elif [ "$left" = "$LEFT_BEFORE" ]; then
-            # Không tick thêm ô nào → gỡ ci-run, kẻo lượt sau nhặt lại đốt hạn mức vô ích.
-            gh issue edit "$ISSUE" -R "$REPO" --remove-label ci-run >/dev/null || true
-            gh issue comment "$ISSUE" -R "$REPO" --body "Runner: lượt này không xong thêm task nào nên đã gỡ \`ci-run\`. Xử lý chỗ vướng ở trên rồi gắn lại." >/dev/null
-          fi
-          gh issue edit "$ISSUE" -R "$REPO" --remove-label ci-running >/dev/null || true
-          echo "issue #$ISSUE: còn $left task"
+          [ -f /tmp/current_issue ] || exit 0
+          i=$(cat /tmp/current_issue)
+          git push -q origin "HEAD:ci/issue-$i" 2>/dev/null || true
+          gh issue edit "$i" -R "$REPO" --remove-label ci-running >/dev/null || true
+          gh issue comment "$i" -R "$REPO" --body "Runner: job bị cắt ngang (hết giờ hoặc huỷ). Phần đã commit nằm ở nhánh ci/issue-$i, task chưa tick sẽ được làm tiếp lượt sau." >/dev/null
+          echo "issue #$i: nhả do job bị cắt"
 
       - name: board
         if: always()

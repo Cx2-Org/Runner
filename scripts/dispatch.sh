@@ -11,10 +11,12 @@ lim() { jq -r --arg k "$1" '._limits[$k] // ._limits.total' platforms.json; }
 # Job đang chạy, run-name dạng "issue-<n> <runs_on>".
 active=$(gh run list --workflow run-cluster.yml -L 200 --json status,displayTitle \
   -q '[.[] | select(.status != "completed") | .displayTitle]')
-issues=$(priv issue list --label ci-run --state open -L 200 --json number,labels)
+issues=$(priv issue list --label ci-run --state open -L 200 --json number,labels,updatedAt)
 
-# Dọn ci-running treo (job chết cứng không kịp gỡ label).
-for n in $(jq -r '.[] | select([.labels[].name] | index("ci-running")) | .number' <<<"$issues"); do
+# Dọn ci-running treo (job chết cứng không kịp gỡ label). Runner nhận tiếp issue khác nên run-name không khớp
+# số issue → chỉ coi là treo khi KHÔNG khớp run nào VÀ issue im quá 6.5 giờ (job dài nhất 6 giờ).
+stale=$(date -u -d '-390 minutes' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-390M +%Y-%m-%dT%H:%M:%SZ)
+for n in $(jq -r --arg s "$stale" '.[] | select(([.labels[].name] | index("ci-running")) and .updatedAt < $s) | .number' <<<"$issues"); do
   if ! jq -e --arg t "issue-$n" 'any(.[]; . == $t or startswith($t + " "))' <<<"$active" >/dev/null; then
     priv issue edit "$n" --remove-label ci-running >/dev/null
     echo "issue #$n: gỡ ci-running treo"

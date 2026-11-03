@@ -71,7 +71,7 @@ jobs:
             # Output chỉ ghi ra file — KHÔNG in console.
             claude -p "$(cat ../runner/prompt.md)" --allowedTools "$allowed" --add-dir /tmp \
               --output-format json > "../claude-$round.json" 2>> ../claude.err
-            l1=$(left); echo "vòng $round: exit=$? còn $l1 task"
+            rc=$?; l1=$(left); echo "vòng $round: exit=$rc còn $l1 task"
             [ "$l1" = 0 ] && break
             [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
             [ "$(git rev-list --count HEAD)" = "$c0" ] && [ "$l1" = "$l0" ] && break

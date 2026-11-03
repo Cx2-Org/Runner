@@ -40,14 +40,19 @@ while :; do
      && cat "../claude-$round.json" ../claude.err 2>/dev/null | grep -qiE 'usage limit|limit reached|rate.?limit|overloaded'; then QUOTA=1; break; fi
   [ "$l1" = 0 ] && break
   [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
-  # Loop liên tục = vòng không tick thêm ô nào, hoặc Claude tự báo "CẦN-MODEL-MẠNH" (sửa 5 lần cùng lỗi vẫn đỏ)
-  # → nâng 1 bậc haiku → sonnet → opus. Ở opus mà 2 vòng liền không tick → bỏ (bế tắc thật / hạ tầng).
-  if [ "$l1" = "$l0" ] || jq -r '.result // ""' "../claude-$round.json" 2>/dev/null | grep -q 'CẦN-MODEL-MẠNH'; then
-    case "$MODEL" in
-      haiku) MODEL=sonnet ;; sonnet) MODEL=opus ;;
-      opus) stuck=$(( ${stuck:-0} + 1 )); [ "$stuck" -ge 2 ] && break ;;
-    esac
-    echo "issue #$ISSUE: loop không ra kết quả → $MODEL"
+  # Loop không ra kết quả → nâng 1 bậc haiku → sonnet → opus. Ba trường hợp của 1 vòng không tick thêm ô nào:
+  #  - Claude báo "CẦN-MODEL-MẠNH" (sửa 5 lần cùng lỗi vẫn đỏ), hoặc có commit mà vẫn không tick → nâng model.
+  #  - Không commit, không báo gì → task còn lại đều BỎ QUA (hạ tầng/cần owner) → dừng, nâng model vô ích.
+  #  Ở opus mà 2 vòng liền không tick → bỏ.
+  if [ "$l1" = "$l0" ]; then
+    if jq -r '.result // ""' "../claude-$round.json" 2>/dev/null | grep -q 'CẦN-MODEL-MẠNH' \
+       || [ "$(git rev-list --count HEAD)" != "$c0" ]; then
+      case "$MODEL" in
+        haiku) MODEL=sonnet ;; sonnet) MODEL=opus ;;
+        opus) stuck=$(( ${stuck:-0} + 1 )); [ "$stuck" -ge 2 ] && break ;;
+      esac
+      echo "issue #$ISSUE: loop không ra kết quả → $MODEL"
+    else break; fi
   else stuck=0; fi
 done
 

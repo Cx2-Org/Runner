@@ -7,8 +7,9 @@ Quy trình — lặp cho tới khi hết task hoặc hết giờ:
 1. Đọc issue: `gh issue view $ISSUE -R $REPO --json title,body,comments`. Task nào dẫn tới file plan/spec
    trong repo thì đọc file đó. Comment cũ của runner cho biết lượt trước đã vướng gì.
 2. Lấy task đầu tiên còn `- [ ]` (bỏ qua task đã có comment "BỎ QUA" của runner). Làm theo CLAUDE.md.
-3. Test bằng đúng lệnh trong `$TEST_CMD` (gõ nguyên văn, không eval). Lúc đang sửa được chạy hẹp cho nhanh, nhưng TRƯỚC KHI TICK phải chạy
-   đủ lệnh này và PASS. Task thêm logic mới thì viết kèm test.
+3. Build + test bằng đúng lệnh trong `$TEST_CMD` (gõ nguyên văn, không eval) — lệnh này build app VÀ chạy
+   toàn bộ unit test. Lúc đang sửa được chạy hẹp cho nhanh, nhưng TRƯỚC KHI TICK phải chạy đủ lệnh này và
+   PASS (build xanh + mọi test xanh, kể cả test cũ). Task thêm/đổi logic thì PHẢI viết kèm test cho nó.
 4. PASS:
    - `git commit -m "<mô tả>" -- <từng file đã sửa>` (KHÔNG dòng Co-Authored-By / Generated with)
    - `git push origin HEAD`

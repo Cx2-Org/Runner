@@ -1,5 +1,5 @@
 name: run-cluster
-run-name: issue-${{ inputs.issue }}
+run-name: issue-${{ inputs.issue }} ${{ inputs.runs_on }}
 on:
   workflow_dispatch:
     inputs:

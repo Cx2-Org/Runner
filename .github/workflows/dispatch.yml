@@ -6,7 +6,6 @@ permissions: { actions: write, contents: write }
 concurrency: { group: dispatch }
 env:
   PRIVATE_REPO: nguyenphp/vibecut
-  MAX_PARALLEL: 4
 jobs:
   dispatch:
     runs-on: ubuntu-latest

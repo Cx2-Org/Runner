@@ -15,22 +15,35 @@ else git fetch -q --depth 1 origin main && git checkout -qB "$BRANCH" FETCH_HEAD
 rm -rf /tmp/shots ../claude-*.json ../claude.err; mkdir -p /tmp/shots
 before=$(left)
 
+# Chọn model (công thức ở README): label model:* thắng; bug/perf → opus; documentation/i18n → haiku; còn lại sonnet.
+# Vòng nào không tiến triển mà chưa phải opus → nâng lên opus làm tiếp 1 lần nữa thay vì bỏ.
+labels=",$(gh issue view "$ISSUE" -R "$REPO" --json labels -q '[.labels[].name] | join(",")'),"
+case "$labels" in
+  *,model:opus,*) MODEL=opus ;; *,model:sonnet,*) MODEL=sonnet ;; *,model:haiku,*) MODEL=haiku ;;
+  *,bug,*|*,perf,*) MODEL=opus ;;
+  *,documentation,*|*,i18n,*) MODEL=haiku ;;
+  *) MODEL=sonnet ;;
+esac
+
 # Vòng Claude: dừng sớm mà còn task + còn giờ → phiên MỚI làm tiếp.
 # ponytail: thôi khi 1 vòng không có commit lẫn tick nào (task còn lại đều BỎ QUA / bế tắc hạ tầng).
 round=0
 while :; do
   round=$((round + 1)); c0=$(git rev-list --count HEAD); l0=$(left)
   # Output chỉ ghi ra file — KHÔNG in console.
-  claude -p "$(cat ../runner/prompt.md)" --allowedTools "$ALLOWED" --add-dir /tmp \
+  claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" --allowedTools "$ALLOWED" --add-dir /tmp \
     --output-format json > "../claude-$round.json" 2>> ../claude.err
-  rc=$?; l1=$(left); echo "issue #$ISSUE vòng $round: exit=$rc còn $l1 task"
+  rc=$?; l1=$(left); echo "issue #$ISSUE vòng $round ($MODEL): exit=$rc còn $l1 task"
   # Hết hạn mức Claude: dừng hẳn, KHÔNG coi là bế tắc (giữ ci-run cho lượt sau).
   # Chỉ xét khi phiên kết thúc LỖI (is_error / không ra JSON), kẻo chữ "429" trong tóm tắt bình thường bị bắt nhầm.
   if ! jq -e '.is_error == false' "../claude-$round.json" >/dev/null 2>&1 \
      && cat "../claude-$round.json" ../claude.err 2>/dev/null | grep -qiE 'usage limit|limit reached|rate.?limit|overloaded'; then QUOTA=1; break; fi
   [ "$l1" = 0 ] && break
   [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
-  [ "$(git rev-list --count HEAD)" = "$c0" ] && [ "$l1" = "$l0" ] && break
+  if [ "$(git rev-list --count HEAD)" = "$c0" ] && [ "$l1" = "$l0" ]; then
+    [ "$MODEL" = opus ] && break
+    MODEL=opus; echo "issue #$ISSUE: không tiến triển, nâng lên opus"
+  fi
 done
 
 # Báo cáo.

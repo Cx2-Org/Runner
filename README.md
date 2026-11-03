@@ -8,3 +8,14 @@ GitHub Actions chạy Claude Code làm checklist trong issue của repo private.
 - `prompt.md` — luật cho Claude. Việc nguy hiểm → mở issue `need-human` chờ duyệt.
 
 Secrets: `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`), `VIBECUT_PAT` (fine-grained: Contents/Issues/Pull requests RW).
+
+## Chọn model cho từng issue
+
+| Ưu tiên | Điều kiện (label của issue) | Model |
+|---|---|---|
+| 1 | `model:opus` / `model:sonnet` / `model:haiku` | đúng model đó |
+| 2 | `bug`, `perf` (debug, tìm nguyên nhân gốc) | opus |
+| 3 | `documentation`, `i18n` (chữ, dịch, tài liệu) | haiku |
+| 4 | còn lại (tính năng, test, port) | sonnet |
+
+Vòng nào không có commit lẫn tick mà model chưa phải opus → tự nâng lên opus làm tiếp; opus cũng bế tắc mới bỏ.

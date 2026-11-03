@@ -1,0 +1,28 @@
+name: dispatch
+on:
+  schedule: [{ cron: '*/30 * * * *' }]
+  workflow_dispatch:
+permissions: { actions: write, contents: write }
+concurrency: { group: dispatch }
+env:
+  PRIVATE_REPO: nguyenphp/vibecut
+  MAX_PARALLEL: 4
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # GitHub tắt cron nếu repo không có commit 60 ngày; commit giữ sống mỗi 30 ngày.
+      - name: keepalive
+        run: |
+          if [ $(( $(date +%s) - $(git log -1 --format=%ct) )) -gt 2592000 ]; then
+            date -u > .keepalive
+            git config user.name cutcut-runner
+            git config user.email 62367533+nguyenphp@users.noreply.github.com
+            git add .keepalive && git commit -qm keepalive && git push -q
+          fi
+      - name: dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRIV_TOKEN: ${{ secrets.VIBECUT_PAT }}
+        run: bash scripts/dispatch.sh

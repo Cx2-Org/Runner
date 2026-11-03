@@ -1,0 +1,82 @@
+name: run-cluster
+run-name: issue-${{ inputs.issue }}
+on:
+  workflow_dispatch:
+    inputs:
+      issue: { required: true }
+      platform: { required: true }
+      runs_on: { required: true }
+concurrency: { group: 'issue-${{ inputs.issue }}' }
+permissions: { contents: read }
+jobs:
+  run:
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: 358
+    defaults: { run: { shell: bash } }
+    env:
+      GH_TOKEN: ${{ secrets.VIBECUT_PAT }}
+      REPO: nguyenphp/vibecut
+      ISSUE: ${{ inputs.issue }}
+      PLATFORM: ${{ inputs.platform }}
+      BRANCH: ci/issue-${{ inputs.issue }}
+    # Repo này PUBLIC: log ai cũng đọc được. Không bước nào được in code/diff/output Claude.
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: runner }
+      - uses: actions/checkout@v4
+        with: { repository: nguyenphp/vibecut, token: '${{ secrets.VIBECUT_PAT }}', path: vibecut, fetch-depth: 1 }
+
+      - name: branch
+        working-directory: vibecut
+        run: |
+          git config core.hooksPath .githooks
+          git config user.name cutcut-runner
+          git config user.email 62367533+nguyenphp@users.noreply.github.com
+          if git fetch -q --depth 1 origin "$BRANCH" 2>/dev/null; then git checkout -qB "$BRANCH" FETCH_HEAD
+          else git checkout -qb "$BRANCH"; fi
+
+      - name: xcode
+        if: inputs.platform == 'ios' || inputs.platform == 'mac'
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)" && xcodebuild -version
+      - uses: actions/setup-java@v4
+        if: inputs.platform == 'android'
+        with: { distribution: temurin, java-version: '17' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm i -g --silent @anthropic-ai/claude-code
+
+      - name: claude
+        working-directory: vibecut
+        timeout-minutes: 335
+        continue-on-error: true
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          export DEADLINE=$(( $(date +%s) + 330 * 60 ))
+          export TEST_CMD=$(jq -r --arg p "$PLATFORM" '.[$p].test' ../runner/platforms.json)
+          # Chỉ cho Claude dùng danh sách lệnh dưới; lệnh ngoài danh sách bị từ chối → Claude ghi BỎ QUA/need-human.
+          # ponytail: allowlist tĩnh; thiếu lệnh nào (vd ruby cho xcodeproj) thì thêm vào đây.
+          allowed="Read,Edit,Write,Glob,Grep,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*)"
+          # Output chỉ ghi ra file — KHÔNG in console.
+          claude -p "$(cat ../runner/prompt.md)" --allowedTools "$allowed" --add-dir /tmp \
+            --output-format json > ../claude.json 2> ../claude.err
+          echo "claude exit=$?"
+
+      - name: wrap
+        if: always()
+        working-directory: vibecut
+        run: |
+          git push -q origin "HEAD:$BRANCH" 2>/dev/null || true
+          pr=$(gh pr view "$BRANCH" -R "$REPO" --json url -q .url 2>/dev/null \
+            || gh pr create -R "$REPO" --head "$BRANCH" --base main \
+                 --title "CI: issue #$ISSUE" --body "Closes #$ISSUE" 2>/dev/null || true)
+          # Tóm tắt của Claude đăng vào issue PRIVATE (không ra log public).
+          summary=$(jq -r '.result // empty' ../claude.json 2>/dev/null)
+          [ -n "$summary" ] || summary="Claude dừng không có tóm tắt (có thể hết hạn mức hoặc hết giờ). $(tail -c 400 ../claude.err 2>/dev/null)"
+          gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}
+
+          $summary" >/dev/null
+          left=$(gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true)
+          if [ "$left" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null; fi
+          gh issue edit "$ISSUE" -R "$REPO" --remove-label ci-running >/dev/null || true
+          echo "issue #$ISSUE: còn $left task"

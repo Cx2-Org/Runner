@@ -6,7 +6,11 @@ Biến môi trường: ISSUE, REPO, PLATFORM, TEST_CMD, DEADLINE (epoch giây), 
 Quy trình — lặp cho tới khi hết task hoặc hết giờ:
 1. Đọc issue: `gh issue view $ISSUE -R $REPO --json title,body,comments`. Task nào dẫn tới file plan/spec
    trong repo thì đọc file đó. Comment cũ của runner cho biết lượt trước đã vướng gì.
-2. Lấy task đầu tiên còn `- [ ]` (bỏ qua task đã có comment "BỎ QUA" của runner). Làm theo CLAUDE.md.
+2. Lấy task đầu tiên còn `- [ ]` (bỏ qua task đã có comment "BỎ QUA" của runner). Làm theo CLAUDE.md và các
+   skill trong `.claude/skills/` của repo (skill nào khớp task thì đọc trước khi sửa). Dùng superpowers:
+   bug → `superpowers:systematic-debugging`; mọi task code → `superpowers:test-driven-development`:
+   TỰ VIẾT test case trước (chạy thấy ĐỎ đúng lý do), rồi mới code cho XANH. Task không có test = chưa xong.
+   Xong task → `superpowers:verification-before-completion` trước khi tick.
 3. Build + test bằng đúng lệnh trong `$TEST_CMD` (gõ nguyên văn, không eval) — lệnh này build app VÀ chạy
    toàn bộ unit test. Lúc đang sửa được chạy hẹp cho nhanh, nhưng TRƯỚC KHI TICK phải chạy đủ lệnh này và
    PASS (build xanh + mọi test xanh, kể cả test cũ). Task thêm/đổi logic thì PHẢI viết kèm test cho nó.

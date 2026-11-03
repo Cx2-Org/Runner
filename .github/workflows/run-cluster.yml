@@ -48,7 +48,11 @@ jobs:
         with: { distribution: temurin, java-version: '17' }
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
-      - run: npm i -g --silent @anthropic-ai/claude-code
+      - name: claude + superpowers
+        run: |
+          npm i -g --silent @anthropic-ai/claude-code
+          claude plugin marketplace add anthropics/claude-plugins-official >/dev/null
+          claude plugin install superpowers@claude-plugins-official >/dev/null && echo "superpowers ok"
 
       - name: claude
         working-directory: vibecut
@@ -61,7 +65,7 @@ jobs:
           export TEST_CMD=$(jq -r --arg p "$PLATFORM" '.[$p].test' ../runner/platforms.json)
           # Chỉ cho Claude dùng danh sách lệnh dưới; lệnh ngoài danh sách bị từ chối → Claude ghi BỎ QUA/need-human.
           # ponytail: allowlist tĩnh; thiếu lệnh nào (vd ruby cho xcodeproj) thì thêm vào đây.
-          allowed="Read,Edit,Write,Glob,Grep,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*)"
+          allowed="Read,Edit,Write,Glob,Grep,Skill,TodoWrite,Agent,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*)"
           left() { gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true; }
           # Vòng ngoài: Claude dừng sớm mà còn task + còn giờ → mở phiên MỚI (đọc lại issue) làm tiếp.
           # ponytail: dừng khi 1 vòng không có commit lẫn tick nào (task còn lại đều BỎ QUA / bế tắc hạ tầng).

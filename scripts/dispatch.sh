@@ -15,7 +15,7 @@ issues=$(priv issue list --label ci-run --state open -L 200 --json number,labels
 
 # Dọn ci-running treo (job chết cứng không kịp gỡ label).
 for n in $(jq -r '.[] | select([.labels[].name] | index("ci-running")) | .number' <<<"$issues"); do
-  if ! jq -e --arg t "issue-$n " 'any(.[]; startswith($t))' <<<"$active" >/dev/null; then
+  if ! jq -e --arg t "issue-$n" 'any(.[]; . == $t or startswith($t + " "))' <<<"$active" >/dev/null; then
     priv issue edit "$n" --remove-label ci-running >/dev/null
     echo "issue #$n: gỡ ci-running treo"
   fi
@@ -24,7 +24,7 @@ done
 declare -A used
 total=0
 while read -r os; do [ -n "$os" ] && used[$os]=$(( ${used[$os]:-0} + 1 )) && total=$((total + 1)); done \
-  < <(jq -r '.[] | split(" ")[1] // empty' <<<"$active")
+  < <(jq -r '.[] | split(" ")[1] // "?"' <<<"$active")
 max_total=$(lim total)
 echo "đang chạy $total/$max_total job"
 

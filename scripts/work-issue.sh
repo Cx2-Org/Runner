@@ -16,7 +16,7 @@ rm -rf /tmp/shots ../claude-*.json ../claude.err; mkdir -p /tmp/shots
 before=$(left)
 
 # Chọn model (công thức ở README): label model:* thắng; bug/perf → opus; documentation/i18n → haiku; còn lại sonnet.
-# Vòng nào không tiến triển mà chưa phải opus → nâng lên opus làm tiếp 1 lần nữa thay vì bỏ.
+# Loop không ra kết quả → nâng từng bậc (xem dưới vòng lặp).
 labels=",$(gh issue view "$ISSUE" -R "$REPO" --json labels -q '[.labels[].name] | join(",")'),"
 case "$labels" in
   *,model:opus,*) MODEL=opus ;; *,model:sonnet,*) MODEL=sonnet ;; *,model:haiku,*) MODEL=haiku ;;
@@ -40,10 +40,15 @@ while :; do
      && cat "../claude-$round.json" ../claude.err 2>/dev/null | grep -qiE 'usage limit|limit reached|rate.?limit|overloaded'; then QUOTA=1; break; fi
   [ "$l1" = 0 ] && break
   [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
-  if [ "$(git rev-list --count HEAD)" = "$c0" ] && [ "$l1" = "$l0" ]; then
-    [ "$MODEL" = opus ] && break
-    MODEL=opus; echo "issue #$ISSUE: không tiến triển, nâng lên opus"
-  fi
+  # Loop liên tục = vòng không tick thêm ô nào, hoặc Claude tự báo "CẦN-MODEL-MẠNH" (sửa 5 lần cùng lỗi vẫn đỏ)
+  # → nâng 1 bậc haiku → sonnet → opus. Ở opus mà 2 vòng liền không tick → bỏ (bế tắc thật / hạ tầng).
+  if [ "$l1" = "$l0" ] || jq -r '.result // ""' "../claude-$round.json" 2>/dev/null | grep -q 'CẦN-MODEL-MẠNH'; then
+    case "$MODEL" in
+      haiku) MODEL=sonnet ;; sonnet) MODEL=opus ;;
+      opus) stuck=$(( ${stuck:-0} + 1 )); [ "$stuck" -ge 2 ] && break ;;
+    esac
+    echo "issue #$ISSUE: loop không ra kết quả → $MODEL"
+  else stuck=0; fi
 done
 
 # Báo cáo.

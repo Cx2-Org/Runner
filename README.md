@@ -18,4 +18,4 @@ Secrets: `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`), `VIBECUT_PAT` (fine-g
 | 3 | `documentation`, `i18n` (chữ, dịch, tài liệu) | haiku |
 | 4 | còn lại (tính năng, test, port) | sonnet |
 
-Vòng nào không có commit lẫn tick mà model chưa phải opus → tự nâng lên opus làm tiếp; opus cũng bế tắc mới bỏ.
+Loop không ra kết quả (vòng không tick thêm ô nào, hoặc Claude báo `CẦN-MODEL-MẠNH` sau 5 lần sửa cùng một lỗi) → nâng 1 bậc haiku → sonnet → opus. Opus 2 vòng liền vẫn không tick → bỏ.

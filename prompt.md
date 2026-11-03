@@ -35,6 +35,9 @@ Quy trình — lặp cho tới khi hết task hoặc hết giờ:
      đó thành `- [x]`, rồi `gh issue edit $ISSUE -R $REPO --body-file /tmp/body.md`.
    Test/build ĐỎ → đọc lỗi, sửa, chạy lại — LẶP sửa → test cho tới khi XANH. Không được dừng vì "khó" hay
    "đã thử nhiều lần"; đổi hướng nếu hướng cũ bế tắc, nhưng vẫn lặp. Không tick, không sang task kế khi còn đỏ.
+   Cùng MỘT lỗi đỏ đã sửa 5 lần vẫn đỏ (hoặc app cứ crash y một chỗ) → đừng xoay vòng nữa: `git reset --hard HEAD`
+   (giữ commit cũ), KẾT THÚC phiên, câu trả lời cuối ghi `CẦN-MODEL-MẠNH: task <n> — <lỗi, đã thử gì>`. Runner sẽ mở
+   phiên mới bằng model mạnh hơn đọc ghi chú đó làm tiếp. Không ghi BỎ QUA trong trường hợp này.
 5. CHỈ được bỏ task khi bị chặn bởi thứ NGOÀI tầm code (thiếu secret/credential, cần máy thật/thiết bị, cần owner
    quyết, việc nguy hiểm). Trước khi bỏ phải chứng minh: lỗi vẫn y hệt trên HEAD sạch (`git stash` rồi chạy lại). Khi đó:
    `git reset --hard HEAD && git clean -fd`, comment `BỎ QUA: <task> — <lý do ngắn>` vào issue, sang task kế. Không tick.

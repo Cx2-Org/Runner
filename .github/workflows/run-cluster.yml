@@ -7,7 +7,7 @@ on:
       platform: { required: true }
       runs_on: { required: true }
 concurrency: { group: 'issue-${{ inputs.issue }}' }
-permissions: { contents: read }
+permissions: { contents: read, actions: write }
 jobs:
   run:
     runs-on: ${{ inputs.runs_on }}
@@ -85,7 +85,7 @@ jobs:
           # ponytail: allowlist tĩnh; thiếu lệnh nào (vd ruby cho xcodeproj) thì thêm vào đây.
           export ALLOWED="Read,Edit,Write,Glob,Grep,Skill,TodoWrite,Agent,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*),Bash(adb:*),Bash(open:*),Bash(screencapture:*),Bash(pkill:*),Bash(mkdir:*),Bash(cp:*),Bash(sleep:*),Bash(sips:*),Bash(axe:*)"
           while :; do
-            bash ../runner/scripts/work-issue.sh
+            bash ../runner/scripts/work-issue.sh || { echo "hết hạn mức Claude, dừng runner"; break; }
             [ $(( DEADLINE - $(date +%s) )) -lt 1800 ] && { echo "còn dưới 30 phút, không nhận thêm"; break; }
             next=$(bash ../runner/scripts/claim-next.sh); [ -n "$next" ] || { echo "hết issue chờ"; break; }
             export ISSUE=$next; echo "nhận tiếp issue #$ISSUE"
@@ -109,3 +109,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: '[ -n "$GH_TOKEN" ] && bash scripts/project-sync.sh || echo "chưa có PROJECT_TOKEN"'
+
+      # Chạy 24/7: runner xong là gọi bộ điều phối ngay, khỏi chờ lịch 30 phút.
+      - name: next
+        if: always()
+        working-directory: runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run dispatch.yml -R "$GITHUB_REPOSITORY" && echo "đã gọi bộ điều phối"

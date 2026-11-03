@@ -24,6 +24,8 @@ while :; do
   claude -p "$(cat ../runner/prompt.md)" --allowedTools "$ALLOWED" --add-dir /tmp \
     --output-format json > "../claude-$round.json" 2>> ../claude.err
   rc=$?; l1=$(left); echo "issue #$ISSUE vòng $round: exit=$rc còn $l1 task"
+  # Hết hạn mức Claude: dừng hẳn, KHÔNG coi là bế tắc (giữ ci-run cho lượt sau).
+  if grep -qiE 'usage limit|limit reached|rate.?limit|429|overloaded' "../claude-$round.json" ../claude.err 2>/dev/null; then QUOTA=1; break; fi
   [ "$l1" = 0 ] && break
   [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
   [ "$(git rev-list --count HEAD)" = "$c0" ] && [ "$l1" = "$l0" ] && break
@@ -54,7 +56,9 @@ fi
 gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}"$'\n\n'"$summary$shots" >/dev/null
 
 l=$(left)
-if [ "$l" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null
+if [ "${QUOTA:-0}" = 1 ]; then
+  gh issue comment "$ISSUE" -R "$REPO" --body "Runner: hết hạn mức Claude, dừng. Giữ \`ci-run\`, lượt sau làm tiếp." >/dev/null
+elif [ "$l" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null
 elif [ "$l" = "$before" ]; then
   # Không tick thêm ô nào → gỡ ci-run, kẻo bị nhặt lại đốt hạn mức vô ích.
   gh issue edit "$ISSUE" -R "$REPO" --remove-label ci-run >/dev/null || true
@@ -63,3 +67,4 @@ fi
 gh issue edit "$ISSUE" -R "$REPO" --remove-label ci-running >/dev/null || true
 rm -f /tmp/current_issue
 echo "issue #$ISSUE: còn $l task"
+[ "${QUOTA:-0}" = 1 ] && exit 3 || exit 0

@@ -19,6 +19,10 @@ jobs:
       ISSUE: ${{ inputs.issue }}
       PLATFORM: ${{ inputs.platform }}
       BRANCH: ci/issue-${{ inputs.issue }}
+      # SDK quảng cáo Tevo (io.mmonetize) nằm ở Nexus riêng; thiếu thì gradle không resolve được.
+      ORG_GRADLE_PROJECT_tevoNexusMavenUrl: ${{ secrets.TEVO_NEXUS_URL }}
+      ORG_GRADLE_PROJECT_tevoNexusUsername: ${{ secrets.TEVO_NEXUS_USERNAME }}
+      ORG_GRADLE_PROJECT_tevoNexusPassword: ${{ secrets.TEVO_NEXUS_PASSWORD }}
     # Repo này PUBLIC: log ai cũng đọc được. Không bước nào được in code/diff/output Claude.
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +38,7 @@ jobs:
           git config user.email 62367533+nguyenphp@users.noreply.github.com
           if git fetch -q --depth 1 origin "$BRANCH" 2>/dev/null; then git checkout -qB "$BRANCH" FETCH_HEAD
           else git checkout -qb "$BRANCH"; fi
+          echo "LEFT_BEFORE=$(gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true)" >> "$GITHUB_ENV"
 
       - name: xcode
         if: inputs.platform == 'ios' || inputs.platform == 'mac'
@@ -77,6 +82,11 @@ jobs:
 
           $summary" >/dev/null
           left=$(gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true)
-          if [ "$left" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null; fi
+          if [ "$left" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null
+          elif [ "$left" = "$LEFT_BEFORE" ]; then
+            # Không tick thêm ô nào → gỡ ci-run, kẻo lượt sau nhặt lại đốt hạn mức vô ích.
+            gh issue edit "$ISSUE" -R "$REPO" --remove-label ci-run >/dev/null || true
+            gh issue comment "$ISSUE" -R "$REPO" --body "Runner: lượt này không xong thêm task nào nên đã gỡ \`ci-run\`. Xử lý chỗ vướng ở trên rồi gắn lại." >/dev/null
+          fi
           gh issue edit "$ISSUE" -R "$REPO" --remove-label ci-running >/dev/null || true
           echo "issue #$ISSUE: còn $left task"

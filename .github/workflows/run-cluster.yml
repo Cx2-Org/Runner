@@ -142,3 +142,10 @@ jobs:
           fi
           gh issue edit "$ISSUE" -R "$REPO" --remove-label ci-running >/dev/null || true
           echo "issue #$ISSUE: còn $left task"
+
+      - name: board
+        if: always()
+        working-directory: runner
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: '[ -n "$GH_TOKEN" ] && bash scripts/project-sync.sh || echo "chưa có PROJECT_TOKEN"'

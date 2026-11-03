@@ -26,3 +26,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PRIV_TOKEN: ${{ secrets.VIBECUT_PAT }}
         run: bash scripts/dispatch.sh
+      # Bảng GitHub Projects "CutCut Runner". Không có PROJECT_TOKEN thì bỏ qua.
+      - name: board
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: '[ -n "$GH_TOKEN" ] && bash scripts/project-sync.sh || echo "chưa có PROJECT_TOKEN"'

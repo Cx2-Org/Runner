@@ -25,7 +25,9 @@ while :; do
     --output-format json > "../claude-$round.json" 2>> ../claude.err
   rc=$?; l1=$(left); echo "issue #$ISSUE vòng $round: exit=$rc còn $l1 task"
   # Hết hạn mức Claude: dừng hẳn, KHÔNG coi là bế tắc (giữ ci-run cho lượt sau).
-  if grep -qiE 'usage limit|limit reached|rate.?limit|429|overloaded' "../claude-$round.json" ../claude.err 2>/dev/null; then QUOTA=1; break; fi
+  # Chỉ xét khi phiên kết thúc LỖI (is_error / không ra JSON), kẻo chữ "429" trong tóm tắt bình thường bị bắt nhầm.
+  if ! jq -e '.is_error == false' "../claude-$round.json" >/dev/null 2>&1 \
+     && cat "../claude-$round.json" ../claude.err 2>/dev/null | grep -qiE 'usage limit|limit reached|rate.?limit|overloaded'; then QUOTA=1; break; fi
   [ "$l1" = 0 ] && break
   [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
   [ "$(git rev-list --count HEAD)" = "$c0" ] && [ "$l1" = "$l0" ] && break

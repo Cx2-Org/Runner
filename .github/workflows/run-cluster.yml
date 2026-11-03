@@ -78,6 +78,9 @@ jobs:
         continue-on-error: true
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Build/test iOS sạch lần đầu > 10 phút: nới trần lệnh Bash lên 60 phút để Claude chạy THẲNG, không đẩy nền.
+          BASH_DEFAULT_TIMEOUT_MS: '3600000'
+          BASH_MAX_TIMEOUT_MS: '3600000'
         run: |
           export DEADLINE=$(( $(date +%s) + 330 * 60 ))
           export TEST_CMD=$(jq -r --arg p "$PLATFORM" '.[$p].test' ../runner/platforms.json)

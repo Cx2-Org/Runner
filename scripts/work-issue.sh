@@ -12,10 +12,12 @@ echo "$ISSUE" > /tmp/current_issue
 git reset -q --hard; git clean -fdq
 if git fetch -q --depth 1 origin "$BRANCH" 2>/dev/null; then git checkout -qB "$BRANCH" FETCH_HEAD
 else git fetch -q --depth 1 origin main && git checkout -qB "$BRANCH" FETCH_HEAD; fi
-rm -rf /tmp/shots ../claude-*.json ../claude.err; mkdir -p /tmp/shots
+rm -rf /tmp/shots ../claude-*.json ../claude-*.jsonl ../claude.err; mkdir -p /tmp/shots
 before=$(left)
 title=$(gh issue view "$ISSUE" -R "$REPO" --json title -q .title)
 tg() { bash ../runner/scripts/tg.sh "$1"; }
+source ../runner/scripts/lib.sh
+idle=0
 tg "Bắt đầu #$ISSUE ($PLATFORM): $title — $before task. https://github.com/$REPO/issues/$ISSUE"
 
 # Chọn model (công thức ở README): label model:* thắng; bug/perf → opus; documentation/i18n → haiku; còn lại sonnet.
@@ -34,14 +36,22 @@ round=0
 while :; do
   round=$((round + 1)); c0=$(git rev-list --count HEAD); l0=$(left)
   # Output chỉ ghi ra file — KHÔNG in console.
-  claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" --dangerously-skip-permissions --add-dir /tmp \
-    --output-format json > "../claude-$round.json" 2>> ../claude.err
-  rc=$?; l1=$(left); echo "issue #$ISSUE vòng $round ($MODEL): exit=$rc còn $l1 task"
+  # Watchdog trong job: Claude không in gì 45 phút (build iOS sạch dài nhất ~30 phút) → giết, mở phiên mới.
+  run_with_idle_kill 2700 "../claude-$round.jsonl" -- claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" \
+    --dangerously-skip-permissions --add-dir /tmp --output-format stream-json --verbose 2>> ../claude.err
+  rc=$?; grep '"type":"result"' "../claude-$round.jsonl" | tail -1 > "../claude-$round.json"
+  l1=$(left); echo "issue #$ISSUE vòng $round ($MODEL): exit=$rc còn $l1 task"
+  if [ "$rc" = 124 ]; then
+    idle=$(( ${idle:-0} + 1 )); tg "#$ISSUE: phiên Claude im 45 phút, khởi động lại ($idle/3)"
+    [ "$idle" -ge 3 ] && break
+    [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
+    continue
+  fi
   tg "#$ISSUE vòng $round ($MODEL): còn $l1/$before task"
   # Hết hạn mức Claude: dừng hẳn, KHÔNG coi là bế tắc (giữ ci-run cho lượt sau).
   # Chỉ xét khi phiên kết thúc LỖI (is_error / không ra JSON), kẻo chữ "429" trong tóm tắt bình thường bị bắt nhầm.
   if ! jq -e '.is_error == false' "../claude-$round.json" >/dev/null 2>&1 \
-     && cat "../claude-$round.json" ../claude.err 2>/dev/null | grep -qiE 'usage limit|limit reached|rate.?limit|overloaded'; then QUOTA=1; break; fi
+     && cat "../claude-$round.json" <(tail -n 3 "../claude-$round.jsonl") ../claude.err 2>/dev/null | grep -qiE 'usage limit|limit reached|rate.?limit|overloaded'; then QUOTA=1; break; fi
   [ "$l1" = 0 ] && break
   [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
   # Loop không ra kết quả → nâng 1 bậc haiku → sonnet → opus. Ba trường hợp của 1 vòng không tick thêm ô nào:

@@ -20,6 +20,7 @@ jobs:
       PLATFORM: ${{ inputs.platform }}
       # Telegram: 1 bot riêng mỗi tài khoản Claude (TG_BOT_TOKEN_1..3) hoặc 1 bot chung; thiếu thì không báo.
       TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+      TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
       TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
       TG_BOT_TOKEN_1: ${{ secrets.TG_BOT_TOKEN_1 }}
       TG_BOT_TOKEN_2: ${{ secrets.TG_BOT_TOKEN_2 }}

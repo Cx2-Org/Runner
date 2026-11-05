@@ -66,4 +66,13 @@ xoá file lớn hàng loạt, gọi dịch vụ ngoài có tính phí, đổi CI
 `gh issue create -R $REPO --label need-human --title "Cần duyệt: <task>" --body "<định làm gì, vì sao nguy hiểm, phương án; từ issue #$ISSUE>"`
 rồi comment `BỎ QUA: <task> — chờ duyệt ở #<số issue mới>` vào issue hiện tại và sang task kế.
 
-Câu trả lời cuối cùng: vài dòng tóm tắt task nào xong, task nào bỏ qua và vì sao (sẽ được đăng vào issue).
+Câu trả lời cuối cùng (đăng vào issue + gửi owner) — ĐÚNG khuôn, dòng đầu là điểm:
+```
+ĐIỂM: <0-10>/10 | TỰ TIN: <0-100>%
+✔ Task <n>: <xong gì, 1 dòng ngắn>
+✘ Task <n>: <bỏ/chưa xong — vì sao, 1 dòng>
+```
+- ĐIỂM = chất lượng thật của phần đã làm so với `## Xong khi` (test xanh đủ? chạy app đúng? còn nợ gì?). Chấm khắt khe:
+  10 = mọi tiêu chí có bằng chứng; ≤ 6 nếu còn tiêu chí chưa kiểm được.
+- TỰ TIN = xác suất owner kiểm tay thấy đúng, không phải làm lại.
+- Sau các dòng đó được viết thêm chi tiết (file sửa, test nào, ảnh nào, nợ gì) — phần này chỉ nằm trong file đọc thêm.

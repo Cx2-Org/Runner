@@ -106,7 +106,9 @@ if [ "${QUOTA:-0}" = 1 ]; then st="hết hạn mức, tạm dừng"; elif [ "$l"
 rep="/tmp/bao-cao-issue-$ISSUE.md"
 { echo "# #$ISSUE — $title"; echo; echo "**Kết quả:** $st"; [ -n "$pr" ] && echo "**PR:** $pr"
   echo "**Issue:** https://github.com/$REPO/issues/$ISSUE"; echo; echo "## Bot báo cáo"; echo; echo "$summary"; } > "$rep"
-tg --file "$rep" "#$ISSUE $st: $title"
+# Dòng ngắn: kết quả + điểm/tự tin + từng task (bot ghi theo khuôn ở prompt.md); chi tiết nằm trong file .md.
+score=$(grep -m1 -E '^ĐIỂM:' <<<"$summary"); tasks=$(grep -E '^[✔✘] Task' <<<"$summary" | head -12)
+tg --file "$rep" "#$ISSUE $st: $title${score:+$'\n'$score}${tasks:+$'\n'$tasks}"
 if [ "${QUOTA:-0}" = 1 ]; then
   gh issue comment "$ISSUE" -R "$REPO" --body "Runner: hết hạn mức Claude, dừng. Giữ \`ci-run\`, lượt sau làm tiếp." >/dev/null
 elif [ "$l" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null

@@ -10,8 +10,11 @@ echo "$ISSUE" > /tmp/current_issue
 
 # Nhánh sạch cho issue này: tiếp nhánh cũ nếu có, không thì từ main.
 git reset -q --hard; git clean -fdq
+# Nhánh gốc theo dòng "Nhánh gốc: X" trong issue (dự án lớn như desktop/main), mặc định main.
+source ../runner/scripts/lib.sh
+export BASE; BASE=$(base_branch "$(gh issue view "$ISSUE" -R "$REPO" --json body -q .body)")
 if git fetch -q --depth 1 origin "$BRANCH" 2>/dev/null; then git checkout -qB "$BRANCH" FETCH_HEAD
-else git fetch -q --depth 1 origin main && git checkout -qB "$BRANCH" FETCH_HEAD; fi
+else git fetch -q --depth 1 origin "$BASE" && git checkout -qB "$BRANCH" FETCH_HEAD; fi
 rm -rf /tmp/shots ../claude-*.json ../claude-*.jsonl ../claude.err; mkdir -p /tmp/shots
 before=$(left)
 title=$(gh issue view "$ISSUE" -R "$REPO" --json title -q .title)
@@ -41,7 +44,7 @@ while :; do
   run_with_idle_kill 3900 "../claude-$round.jsonl" -- claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" \
     --dangerously-skip-permissions --add-dir /tmp --output-format stream-json --verbose \
     --disallowedTools "Bash(git push origin main*)" "Bash(git push origin HEAD:main*)" "Bash(git push --force*)" \
-      "Bash(git push -f*)" "Bash(gh pr merge*)" "Bash(gh api*)" "Bash(gh secret*)" "Bash(gh repo*)" "Bash(curl*)" \
+      "Bash(git push -f*)" "Bash(git push origin desktop/*)" "Bash(git push origin HEAD:desktop/*)" "Bash(gh pr merge*)" "Bash(gh api*)" "Bash(gh secret*)" "Bash(gh repo*)" "Bash(curl*)" \
       "Bash(wget*)" "Bash(env*)" "Bash(printenv*)" 2>> ../claude.err
   rc=$?; grep '"type":"result"' "../claude-$round.jsonl" | tail -1 > "../claude-$round.json"
   l1=$(left); echo "issue #$ISSUE vòng $round ($MODEL): exit=$rc còn $l1 task"
@@ -77,7 +80,7 @@ done
 # Báo cáo.
 git push -q origin "HEAD:$BRANCH" 2>/dev/null || true
 pr=$(gh pr view "$BRANCH" -R "$REPO" --json url -q .url 2>/dev/null \
-  || gh pr create -R "$REPO" --head "$BRANCH" --base main --title "CI: issue #$ISSUE" --body "Closes #$ISSUE" 2>/dev/null || true)
+  || gh pr create -R "$REPO" --head "$BRANCH" --base "$BASE" --title "CI: issue #$ISSUE" --body "Closes #$ISSUE" 2>/dev/null || true)
 summary=$(for f in ../claude-*.json; do jq -r '.result // empty' "$f" 2>/dev/null; done)
 [ -n "$summary" ] || summary="Claude dừng không có tóm tắt (có thể hết hạn mức hoặc hết giờ). $(tail -c 400 ../claude.err 2>/dev/null)"
 

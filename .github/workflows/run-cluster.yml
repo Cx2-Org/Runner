@@ -73,7 +73,8 @@ jobs:
               echo "emulator đang boot" ;;
             ios)
               udid=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | .value[] | select(.name | test("^iPhone"))][-1].udid')
-              xcrun simctl boot "$udid" && echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
+              # KHÔNG boot sẵn (ăn ~1.5GB RAM suốt lúc build); Claude boot khi tới bước chạy app: xcrun simctl boot $SIM_UDID
+              echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
               brew install -q cameroncooke/axe/axe >/dev/null 2>&1 && echo "axe ok" || echo "không có axe" ;;
             *) echo "không cần máy ảo" ;;
           esac

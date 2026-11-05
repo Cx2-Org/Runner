@@ -13,7 +13,7 @@ bot_label() { case "$1" in 1) echo bot:queenie ;; 2) echo bot:ironman ;; 3) echo
 run_with_idle_kill() {
   local idle=$1 out=$2; shift 3
   : > "$out"
-  perl -e 'setpgrp(0,0); exec @ARGV or die' "$@" >> "$out" &
+  perl -e 'eval { setpgrp(0,0) }; exec @ARGV or die' "$@" >> "$out" &
   local pid=$! last=0 size step=$(( idle / 3 )); [ "$step" -gt 60 ] && step=60; [ "$step" -lt 1 ] && step=1
   local quiet=0
   while kill -0 "$pid" 2>/dev/null; do
@@ -21,7 +21,7 @@ run_with_idle_kill() {
     size=$(wc -c < "$out" | tr -d ' ')
     if [ "$size" != "$last" ]; then last=$size; quiet=0; else quiet=$(( quiet + step )); fi
     if [ "$quiet" -ge "$idle" ]; then
-      kill -TERM -- "-$pid" 2>/dev/null; sleep 2; kill -KILL -- "-$pid" 2>/dev/null
+      kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null; sleep 2; kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null
       wait "$pid" 2>/dev/null; return 124
     fi
   done
@@ -84,4 +84,10 @@ tg_parse_giao_empty() {
   jq -r --arg c "$2" --arg t "$3" '.result[] | .message // empty
     | select((.chat.id|tostring) == $c and ((.message_thread_id // "")|tostring) == $t)
     | select((.text // "") | test("^/giao(@[A-Za-z0-9_]+)?\\s*$")) | .message_id' "$1"
+}
+
+# Nhánh gốc của issue (dòng "Nhánh gốc: desktop/main"); mặc định main. Chỉ nhận tên nhánh an toàn [A-Za-z0-9._/-], không "..".
+base_branch() {
+  local b; b=$(grep -m1 '^Nhánh gốc: ' <<<"$1" | sed 's/^Nhánh gốc: *//; s/[[:space:]]*$//')
+  if [[ "$b" =~ ^[A-Za-z0-9._/-]+$ && "$b" != *..* ]]; then echo "$b"; else echo main; fi
 }

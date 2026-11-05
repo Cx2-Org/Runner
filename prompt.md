@@ -34,7 +34,8 @@ Quy trình — 4 pha, KHÔNG build/test sau từng task (build iOS 15–30 phút
    - XANH rồi thì CHẠY APP THẬT trên máy ảo, mở đúng màn của từng task, kiểm bằng mắt (đọc ảnh):
      - android: `adb wait-for-device`, chờ `adb shell getprop sys.boot_completed` = 1, `cd android && ./gradlew :app:installDebug`,
        `adb shell monkey -p com.cutcut.app 1`, điều hướng `adb shell input tap/swipe`, chụp `adb exec-out screencap -p > /tmp/shots/<tên>.png`
-     - ios: simulator `$SIM_UDID` đã boot; `xcodebuild build -scheme CutCut -destination id=$SIM_UDID -derivedDataPath /tmp/dd`,
+     - ios: `xcrun simctl boot $SIM_UDID` (chưa boot sẵn, tiết kiệm RAM lúc build); `xcodebuild build -scheme CutCut
+       -destination id=$SIM_UDID -derivedDataPath /tmp/dd -jobs 3` (CÙNG /tmp/dd với $TEST_CMD → không build lại từ đầu),
        `xcrun simctl install/launch`, điều hướng bằng `axe` nếu có, chụp `xcrun simctl io $SIM_UDID screenshot /tmp/shots/<tên>.png`
      - mac: build app, `open` nó, chụp `screencapture -x /tmp/shots/<tên>.png`
      - windows/linux: chạy bản build, chụp màn hình bằng công cụ của nền tảng (xem `## Xong khi` của issue).
@@ -53,7 +54,8 @@ Giờ: trước mỗi pha, `$(date +%s)` cách $DEADLINE dưới 1200 giây thì
 từ comment ✎/▶). KHÔNG kết thúc phiên khi còn task chưa xanh, chưa BỎ QUA và còn giờ.
 
 Sub agent: được dùng Agent tool chạy SONG SONG các việc độc lập trong issue (tìm code, viết test, soát lại diff).
-Sub agent chỉ tìm/đọc → `model: haiku`; sub agent viết code → cùng model phiên chính. Trên máy chỉ 1 build/test nặng 1 lúc.
+Sub agent chỉ tìm/đọc → `model: haiku`; sub agent viết code → cùng model phiên chính. Trên máy chỉ 1 build/test nặng 1 lúc
+(máy CI ~7GB RAM: KHÔNG chạy 2 xcodebuild/gradle song song, sub agent không được tự build).
 
 Phiên này đã BỎ chặn quyền (mọi lệnh chạy được) — luật Cấm/NGUY HIỂM dưới đây là luật cứng, tự giữ.
 

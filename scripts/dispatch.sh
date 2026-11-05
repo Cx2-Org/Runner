@@ -93,3 +93,23 @@ case "$(head -1 <<<"$r")" in
 esac
 new=$(tail -1 <<<"$r"); [ "$new" = "$state" ] || priv issue edit "$sn" --body "$new" >/dev/null
 echo "hàng chờ: $waiting chờ, $running chạy"
+
+# Dự án nhiều gói (nhánh gốc khác main, vd desktop/main): bot xong (issue đóng) → runner tự merge PR vào nhánh gốc để gói
+# phụ thuộc chạy tiếp. KHÔNG bao giờ merge vào main (owner duyệt). Xung đột → mở lại issue + thêm task rebase.
+while IFS=$'\t' read -r pr head base; do
+  [ -n "$pr" ] || continue
+  [[ "$base" == main || "$base" == master ]] && continue
+  n=${head#ci/issue-}; [[ "$n" =~ ^[0-9]+$ ]] || continue
+  [ "$(priv issue view "$n" --json state -q .state 2>/dev/null)" = CLOSED ] || continue
+  if GH_TOKEN="$PRIV_TOKEN" gh pr merge "$pr" -R "$PRIVATE_REPO" --merge >/dev/null 2>&1; then
+    echo "PR #$pr → $base: đã merge"; tg "Đã gộp #$n vào $base (PR #$pr)."
+  else
+    f=$(mktemp); priv issue view "$n" --json body -q .body > "$f"
+    grep -q 'Rebase lên' "$f" || printf '\n- [ ] Rebase lên %s, giải xung đột, chạy lại $TEST_CMD cho xanh\n' "$base" >> "$f"
+    priv issue edit "$n" --body-file "$f" >/dev/null; rm -f "$f"
+    priv issue reopen "$n" >/dev/null; priv issue edit "$n" --add-label ci-run >/dev/null
+    priv issue comment "$n" --body "Runner: PR #$pr không merge được vào $base (xung đột). Mở lại để rebase." >/dev/null
+    echo "PR #$pr: xung đột, mở lại #$n"
+  fi
+done < <(GH_TOKEN="$PRIV_TOKEN" gh pr list -R "$PRIVATE_REPO" --state open -L 100 --json number,headRefName,baseRefName \
+  -q '.[] | "\(.number)\t\(.headRefName)\t\(.baseRefName)"' 2>/dev/null || true)

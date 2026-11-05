@@ -1,7 +1,7 @@
 #!/bin/bash
 # Làm trọn 1 issue trên runner đang chạy: nhánh → các vòng Claude → báo cáo (PR, comment, ảnh, label).
 # Gọi lặp cho nhiều issue trong cùng 1 job (máy ảo/Xcode/plugin chỉ dựng 1 lần).
-# Chạy trong thư mục vibecut. Cần env: ISSUE REPO PLATFORM DEADLINE TEST_CMD ALLOWED GITHUB_RUN_ID.
+# Chạy trong thư mục vibecut. Cần env: ISSUE REPO PLATFORM DEADLINE TEST_CMD GITHUB_RUN_ID.
 # Log PUBLIC: chỉ in số issue + đếm task.
 set -uo pipefail
 export BRANCH=ci/issue-$ISSUE
@@ -34,7 +34,7 @@ round=0
 while :; do
   round=$((round + 1)); c0=$(git rev-list --count HEAD); l0=$(left)
   # Output chỉ ghi ra file — KHÔNG in console.
-  claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" --allowedTools "$ALLOWED" --add-dir /tmp \
+  claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" --dangerously-skip-permissions --add-dir /tmp \
     --output-format json > "../claude-$round.json" 2>> ../claude.err
   rc=$?; l1=$(left); echo "issue #$ISSUE vòng $round ($MODEL): exit=$rc còn $l1 task"
   tg "#$ISSUE vòng $round ($MODEL): còn $l1/$before task"

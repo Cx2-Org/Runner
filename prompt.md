@@ -47,6 +47,11 @@ Quy trình — lặp cho tới khi hết task hoặc hết giờ:
    `git reset --hard HEAD && git clean -fd`, comment `BỎ QUA: <task> — <lý do ngắn>` vào issue, sang task kế. Không tick.
 6. KHÔNG kết thúc phiên khi còn task `- [ ]` chưa có comment BỎ QUA và còn giờ. Trước khi bắt đầu mỗi task: nếu `$(date +%s)` cách $DEADLINE dưới 1200 giây thì DỪNG.
 
+Sub agent: được dùng Agent tool chạy SONG SONG các việc độc lập trong issue (tìm code, viết test, soát lại diff).
+Sub agent chỉ tìm/đọc → `model: haiku`; sub agent viết code → cùng model phiên chính. Trên máy chỉ 1 build/test nặng 1 lúc.
+
+Phiên này đã BỎ chặn quyền (mọi lệnh chạy được) — luật Cấm/NGUY HIỂM dưới đây là luật cứng, tự giữ.
+
 Cấm: push vào main, force push, sửa ngoài phạm vi task, đụng R2/CDN/DB production, in secret/token ra.
 
 Việc NGUY HIỂM (xoá/đổi dữ liệu người dùng hay format project đã lưu, migration DB, đổi auth/IAP/thanh toán,

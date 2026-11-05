@@ -95,13 +95,14 @@ jobs:
         run: |
           export DEADLINE=$(( $(date +%s) + 330 * 60 ))
           export TEST_CMD=$(jq -r --arg p "$PLATFORM" '.[$p].test' ../runner/platforms.json)
-          # Chỉ cho Claude dùng danh sách lệnh dưới; lệnh ngoài danh sách bị từ chối → Claude ghi BỎ QUA/need-human.
-          # ponytail: allowlist tĩnh; thiếu lệnh nào (vd ruby cho xcodeproj) thì thêm vào đây.
-          export ALLOWED="Read,Edit,Write,Glob,Grep,Skill,TodoWrite,Agent,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*),Bash(adb:*),Bash(open:*),Bash(screencapture:*),Bash(pkill:*),Bash(mkdir:*),Bash(cp:*),Bash(sleep:*),Bash(sips:*),Bash(axe:*)"
           toks=(); nos=(); i=0; for t in "$TOK_1" "$TOK_2" "$TOK_3" "$TOK_0"; do i=$((i+1)); [ -n "$t" ] && { toks+=("$t"); nos+=($(( i % 4 ))); }; done
           [ ${#toks[@]} -gt 0 ] || { echo "thiếu secret CLAUDE_CODE_OAUTH_TOKEN_1..3"; exit 1; }
           # Rải issue đều cho các tài khoản; acc hết hạn mức thì đổi acc kế tiếp, hết cả thì dừng. Không in token.
-          ti=$(( ISSUE % ${#toks[@]} )); tried=0
+          source ../runner/scripts/lib.sh
+          # Bot làm issue = nhãn bot:* (trưởng nhóm gắn lúc giao); thiếu nhãn thì rải theo số issue.
+          pick() { local b; b=$(bot_no_from_labels ",$(gh issue view "$ISSUE" -R "$REPO" --json labels -q '[.labels[].name]|join(",")'),")
+            ti=$(( ISSUE % ${#toks[@]} )); for k in "${!nos[@]}"; do [ "${nos[$k]}" = "$b" ] && ti=$k; done; }
+          pick; tried=0
           while :; do
             export CLAUDE_CODE_OAUTH_TOKEN="${toks[$ti]}" BOT_NO="${nos[$ti]}"
             if ! bash ../runner/scripts/work-issue.sh; then
@@ -114,6 +115,7 @@ jobs:
             [ $(( DEADLINE - $(date +%s) )) -lt 1800 ] && { echo "còn dưới 30 phút, không nhận thêm"; break; }
             next=$(bash ../runner/scripts/claim-next.sh); [ -n "$next" ] || { echo "hết issue chờ"; break; }
             export ISSUE=$next; echo "nhận tiếp issue #$ISSUE"
+            pick
           done
 
       # Job bị cắt ngang (hết giờ/huỷ) giữa issue: đẩy phần đã commit, nhả label để lượt sau làm tiếp.

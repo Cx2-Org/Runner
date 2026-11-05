@@ -1,9 +1,9 @@
 {
   "_limits": {
-    "total": 9,
-    "macos-15-intel": 3,
-    "ubuntu-latest": 7,
-    "windows-latest": 3
+    "total": 15,
+    "macos-15-intel": 4,
+    "ubuntu-latest": 12,
+    "windows-latest": 4
   },
   "ios": {
     "runs_on": "macos-15-intel",

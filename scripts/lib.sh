@@ -74,8 +74,9 @@ queue_alert() {
 # Issue #n được coi là xong để issue khác bắt đầu: PR nhánh ci/issue-n đã MERGE vào main (code có thật trên main);
 # không có PR (làm tay) thì issue đã đóng. dep_done <repo> <n>, exit 0 = xong.
 dep_done() {
-  local st; st=$(gh pr view "ci/issue-$2" -R "$1" --json state -q .state 2>/dev/null)
-  if [ -n "$st" ]; then [ "$st" = MERGED ]; else [ "$(gh issue view "$2" -R "$1" --json state -q .state 2>/dev/null)" = CLOSED ]; fi
+  # Có PR (gốc hoặc ci/issue-N-rebase thay PR gốc bị đóng vì xung đột) → xong khi 1 trong 2 đã MERGED.
+  local st; st=$( { gh pr view "ci/issue-$2" -R "$1" --json state -q .state; gh pr view "ci/issue-$2-rebase" -R "$1" --json state -q .state; } 2>/dev/null || true)
+  if [ -n "$st" ]; then grep -qx MERGED <<<"$st"; else [ "$(gh issue view "$2" -R "$1" --json state -q .state 2>/dev/null)" = CLOSED ]; fi
 }
 # Còn phải chờ issue nào (in số, rỗng = được làm). blocked_open <repo> <body>
 blocked_open() { local b; for b in $(blocked_by "$2"); do dep_done "$1" "$b" || echo "$b"; done; }

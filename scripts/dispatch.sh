@@ -99,7 +99,9 @@ echo "hàng chờ: $waiting chờ, $running chạy"
 while IFS=$'\t' read -r pr head base; do
   [ -n "$pr" ] || continue
   [[ "$base" == main || "$base" == master ]] && continue
-  n=${head#ci/issue-}; [[ "$n" =~ ^[0-9]+$ ]] || continue
+  n=${head#ci/issue-}; n=${n%-rebase}; [[ "$n" =~ ^[0-9]+$ ]] || continue
+  # PR rebase thừa (PR gốc đã merge) → bỏ qua, không merge lại.
+  [[ "$head" == *-rebase ]] && [ "$(GH_TOKEN="$PRIV_TOKEN" gh pr view "ci/issue-$n" -R "$PRIVATE_REPO" --json state -q .state 2>/dev/null)" = MERGED ] && continue
   [ "$(priv issue view "$n" --json state -q .state 2>/dev/null)" = CLOSED ] || continue
   if GH_TOKEN="$PRIV_TOKEN" gh pr merge "$pr" -R "$PRIVATE_REPO" --merge >/dev/null 2>&1; then
     echo "PR #$pr → $base: đã merge"; tg "🔀 **Đã gộp #$n** vào $base (PR #$pr)"

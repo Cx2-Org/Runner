@@ -4,7 +4,7 @@
 set -uo pipefail
 R=$(cd "$(dirname "$0")/.." && pwd); source "$R/scripts/lib.sh"
 export ISSUE=$1 PLAN="/tmp/plan-$1.json"
-tg() { BOT_NO=1 bash "$R/scripts/tg.sh" "$1"; }
+tg() { BOT_NO=1 bash "$R/scripts/tg.sh" "$@"; }
 
 # claude -p với xoay token 1 → 2 → 3 khi hết hạn mức. Trả 0 xong, 2 hết hạn mức cả 3, 1 lỗi khác.
 # Trưởng nhóm chỉ đọc issue + ghi file kế hoạch: quyền HẸP (không cần bỏ chặn như nhân viên).
@@ -66,7 +66,8 @@ done
 if [ -n "$list" ]; then
   f=$(mktemp); { gh issue view "$ISSUE" -R "$REPO" --json body -q .body; printf '\n\n## Đã tách%s\n' "$list"; } > "$f"
   gh issue edit "$ISSUE" -R "$REPO" --body-file "$f" >/dev/null; rm -f "$f"
-  tg "Đã duyệt việc #$ISSUE: tách $(grep -c '^- #' <<<"$list") issue${ann#,}."
+  rep="/tmp/chia-viec-$ISSUE.md"; printf '# Chia việc #%s\n\n%s\n' "$ISSUE" "$(tr ',' '\n' <<<"${ann#,}" | sed 's/^ */- /')" > "$rep"
+  tg --file "$rep" "Đã chia việc #$ISSUE thành $(grep -c '^- #' <<<"$list") phần"
 fi
 gh issue edit "$ISSUE" -R "$REPO" --remove-label inbox --add-label planned >/dev/null
 echo "triage #$ISSUE: xong"

@@ -18,10 +18,10 @@ else git fetch -q --depth 1 origin "$BASE" && git checkout -qB "$BRANCH" FETCH_H
 rm -rf /tmp/shots ../claude-*.json ../claude-*.jsonl ../claude.err; mkdir -p /tmp/shots
 before=$(left)
 title=$(gh issue view "$ISSUE" -R "$REPO" --json title -q .title)
-tg() { bash ../runner/scripts/tg.sh "$1"; }
+tg() { bash ../runner/scripts/tg.sh "$@"; }
 source ../runner/scripts/lib.sh
 idle=0
-tg "Bắt đầu #$ISSUE ($PLATFORM): $title — $before task. https://github.com/$REPO/issues/$ISSUE"
+tg "Bắt đầu #$ISSUE: $title"
 
 # Chọn model (công thức ở README): label model:* thắng; bug/perf → opus; documentation/i18n → haiku; còn lại sonnet.
 # Loop không ra kết quả → nâng từng bậc (xem dưới vòng lặp).
@@ -54,7 +54,6 @@ while :; do
     [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
     continue
   fi
-  tg "#$ISSUE vòng $round ($MODEL): còn $l1/$before task"
   # Hết hạn mức Claude: dừng hẳn, KHÔNG coi là bế tắc (giữ ci-run cho lượt sau).
   # Chỉ xét khi phiên kết thúc LỖI (is_error / không ra JSON), kẻo chữ "429" trong tóm tắt bình thường bị bắt nhầm.
   if ! jq -e '.is_error == false' "../claude-$round.json" >/dev/null 2>&1 \
@@ -102,8 +101,12 @@ fi
 gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}"$'\n\n'"$summary$shots" >/dev/null
 
 l=$(left)
-if [ "${QUOTA:-0}" = 1 ]; then st="hết hạn mức, dừng"; elif [ "$l" = 0 ]; then st="XONG hết task"; elif [ "$l" = "$before" ]; then st="kẹt, không xong thêm task nào (đã gỡ ci-run)"; else st="còn $l task, lượt sau làm tiếp"; fi
-tg "#$ISSUE $st.${pr:+ PR: $pr}"$'\n\n'"${summary:0:1500}"
+if [ "${QUOTA:-0}" = 1 ]; then st="hết hạn mức, tạm dừng"; elif [ "$l" = 0 ]; then st="xong"; elif [ "$l" = "$before" ]; then st="bị kẹt, cần mày xem"; else st="xong $((before - l))/$before task, lượt sau làm tiếp"; fi
+# Tin ngắn 1 dòng; chi tiết vào file .md đính kèm.
+rep="/tmp/bao-cao-issue-$ISSUE.md"
+{ echo "# #$ISSUE — $title"; echo; echo "**Kết quả:** $st"; [ -n "$pr" ] && echo "**PR:** $pr"
+  echo "**Issue:** https://github.com/$REPO/issues/$ISSUE"; echo; echo "## Bot báo cáo"; echo; echo "$summary"; } > "$rep"
+tg --file "$rep" "#$ISSUE $st: $title"
 if [ "${QUOTA:-0}" = 1 ]; then
   gh issue comment "$ISSUE" -R "$REPO" --body "Runner: hết hạn mức Claude, dừng. Giữ \`ci-run\`, lượt sau làm tiếp." >/dev/null
 elif [ "$l" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null

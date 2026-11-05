@@ -23,7 +23,7 @@ def parse(text):
         assert 'platform' in p, f"{p['id']} thiếu meta"
     return pk
 
-def body_of(p, base, doc, nums):
+def body_of(p, base, doc, nums, read, goal):
     tasks, done, cur = [], '', None
     for l in p['lines']:
         if l.startswith('Xong khi:'): done = l[len('Xong khi:'):].strip(); cur = None
@@ -33,11 +33,11 @@ def body_of(p, base, doc, nums):
     wait = ', '.join(f'#{nums[d]}' for d in p['deps'] if d in nums)
     return '\n'.join([
         f'Từ kế hoạch `{doc}` (nhánh `{base}`) — gói **{p["id"]}**: {p["title"]}', '',
-        '## Mục tiêu', f'{p["title"]} cho CutCut Desktop (Windows + Linux, lõi C++, giao diện y app Mac).', '',
+        '## Mục tiêu', f'{p["title"]} — {goal}', '',
         '## Task', *tasks, '',
-        '## Xong khi', f'- {done or "test xanh"}', '- `bash desktop/ci/test.sh` xanh (build + toàn bộ test)', '',
+        '## Xong khi', f'- {done or "test xanh"}', '- `$TEST_CMD` xanh (build + toàn bộ test)', '',
         '## Ghi chú',
-        f'- ĐỌC TRƯỚC trên nhánh `{base}`: `docs/desktop/spec.md`, `docs/desktop/engine-contract.md`, `docs/desktop/ui-inventory.md`, mục {p["id"]} của `{doc}`.',
+        f'- ĐỌC TRƯỚC trên nhánh `{base}`: {read}, mục {p["id"]} của `{doc}`.',
         '- Code Swift gốc là chân lý: lệch tài liệu → theo code, sửa tài liệu trong cùng PR.', '',
         f'Nhánh gốc: {base}', *( [f'Chờ: {wait}'] if wait else [] ), '',
         f'<!-- plan:{base}:{p["id"]} -->'])
@@ -53,6 +53,9 @@ def gh(*a):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('plan'); ap.add_argument('--repo', required=True)
     ap.add_argument('--base', required=True); ap.add_argument('--doc', required=True); ap.add_argument('--create', action='store_true')
+    ap.add_argument('--read', default='`docs/desktop/spec.md`, `docs/desktop/engine-contract.md`, `docs/desktop/ui-inventory.md`')
+    ap.add_argument('--goal', default='cho CutCut Desktop (Windows + Linux, lõi C++, giao diện y app Mac).')
+    ap.add_argument('--prefix', default='desktop')
     a = ap.parse_args(); pk = parse(open(a.plan, encoding='utf-8').read())
     ids = {p['id'] for p in pk}
     for p in pk:
@@ -71,9 +74,9 @@ def main():
             if m: nums[m[1]] = it['number']
     bots, k = ['bot:ironman', 'bot:spiderman', 'bot:queenie'], 0
     for p in order:
-        b = body_of(p, a.base, a.doc, nums)
+        b = body_of(p, a.base, a.doc, nums, a.read, a.goal)
         labels = [p['platform'], f'model:{p["model"]}', bots[k % 3], 'ci-run']; k += 1
-        title = f'[desktop/{p["platform"]}] {p["id"]} {p["title"]}'
+        title = f'[{a.prefix}/{p["platform"]}] {p["id"]} {p["title"]}'
         if not a.create:
             print(f'{p["id"]:6} {",".join(labels):45} chờ {p["deps"] or "-"}'); nums[p['id']] = f'?{p["id"]}'; continue
         if p['id'] in nums: print(f'{p["id"]}: có rồi #{nums[p["id"]]}'); continue

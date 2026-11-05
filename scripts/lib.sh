@@ -27,3 +27,15 @@ run_with_idle_kill() {
   done
   wait "$pid"
 }
+
+# Tin /giao hợp lệ (đúng chat + topic, có nội dung) từ JSON getUpdates → mỗi tin 1 dòng JSON.
+tg_parse_giao() {
+  jq -c --arg c "$2" --arg t "$3" '.result[] | .update_id as $u | .message // empty
+    | select((.chat.id|tostring) == $c and ((.message_thread_id // "")|tostring) == $t)
+    | select((.text // "") | test("^/giao(@[A-Za-z0-9_]+)?(\\s|$)"))
+    | {key: "tg:\(.chat.id):\(.message_id)", msg_id: .message_id, update_id: $u, date: .date,
+       from: ([.from.first_name, .from.last_name] | map(select(.)) | join(" ")),
+       text: (.text | sub("^/giao(@[A-Za-z0-9_]+)?\\s*"; "") | sub("\\s+$"; ""))}
+    | select(.text != "")' "$1"
+}
+tg_max_update_id() { jq -r '[.result[].update_id] | max // empty' "$1"; }

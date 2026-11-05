@@ -1,0 +1,9 @@
+{"ok":true,"result":[
+ {"update_id":100,"message":{"message_id":11,"message_thread_id":461,"date":1,"from":{"first_name":"Quyen"},"chat":{"id":-1004420681690},"text":"/giao làm tính năng A cho iOS"}},
+ {"update_id":101,"message":{"message_id":12,"message_thread_id":461,"date":2,"from":{"first_name":"Quyen"},"chat":{"id":-1004420681690},"text":"/giao@captain_queenie_bot sửa lỗi B\ndòng 2"}},
+ {"update_id":102,"message":{"message_id":13,"message_thread_id":461,"date":3,"from":{"first_name":"Quyen"},"chat":{"id":-1004420681690},"text":"/giao   "}},
+ {"update_id":103,"message":{"message_id":14,"message_thread_id":999,"date":4,"from":{"first_name":"Quyen"},"chat":{"id":-1004420681690},"text":"/giao topic khác"}},
+ {"update_id":104,"message":{"message_id":15,"message_thread_id":461,"date":5,"from":{"first_name":"X"},"chat":{"id":-1},"text":"/giao chat khác"}},
+ {"update_id":105,"message":{"message_id":16,"message_thread_id":461,"date":6,"from":{"first_name":"Quyen"},"chat":{"id":-1004420681690},"text":"chào cả nhà"}},
+ {"update_id":106,"my_chat_member":{"chat":{"id":-1004420681690}}}
+]}

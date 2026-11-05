@@ -102,7 +102,7 @@ jobs:
           source ../runner/scripts/lib.sh
           # Bot làm issue = nhãn bot:* (trưởng nhóm gắn lúc giao); thiếu nhãn thì rải theo số issue.
           pick() { local b; b=$(bot_no_from_labels ",$(gh issue view "$ISSUE" -R "$REPO" --json labels -q '[.labels[].name]|join(",")'),")
-            ti=$(( ISSUE % ${#toks[@]} )); for k in "${!nos[@]}"; do [ "${nos[$k]}" = "$b" ] && ti=$k; done; }
+            ti=$(( ISSUE % ${#toks[@]} )); for k in "${!nos[@]}"; do if [ "${nos[$k]}" = "$b" ]; then ti=$k; fi; done; return 0; }
           pick; tried=0
           while :; do
             export CLAUDE_CODE_OAUTH_TOKEN="${toks[$ti]}" BOT_NO="${nos[$ti]}"
@@ -144,4 +144,4 @@ jobs:
         working-directory: runner
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run dispatch.yml -R "$GITHUB_REPOSITORY" && echo "đã gọi bộ điều phối"
+        run: gh workflow run dispatch.yml -R "$GITHUB_REPOSITORY" && echo "đã gọi bộ điều phối" || echo "gọi bộ điều phối lỗi, cron sẽ chạy"

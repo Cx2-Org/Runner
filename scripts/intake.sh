@@ -25,7 +25,7 @@ while IFS= read -r m; do
     ack=$(jq -r .update_id <<<"$m"); BOT_NO=1 bash scripts/tg.sh "Không tạo được issue cho /giao (GitHub lỗi), sẽ thử lại."; break; }
   known="$known"$'\n'"<!-- $key -->"; n_new=$((n_new + 1))
   curl -s -m 15 -o /dev/null "$api/sendMessage" --data-urlencode chat_id="$TG_CHAT_ID" ${TG_THREAD_ID:+-d message_thread_id=$TG_THREAD_ID} \
-    --data-urlencode text="Đã nhận, đang phân tích → ${url##*/} ($url)" \
+    --data-urlencode text="📥 Đã nhận, đang phân tích → #${url##*/}" \
     --data-urlencode reply_parameters="{\"message_id\":$msg}" -d disable_web_page_preview=true || true
 done < <(tg_parse_giao "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID")
 # /duyet N… → đề xuất thành việc thật (gỡ de-xuat, gắn ci-run); /bo N… → đóng đề xuất. CHỈ nhận issue đang có nhãn de-xuat.
@@ -37,13 +37,13 @@ while IFS= read -r m; do
     if [ "$cmd" = duyet ]; then gh issue edit "$n" -R "$REPO" --remove-label de-xuat --add-label ci-run >/dev/null && ok="$ok #$n"
     else gh issue close "$n" -R "$REPO" --reason "not planned" --comment "Owner bỏ đề xuất." >/dev/null && gh issue edit "$n" -R "$REPO" --remove-label de-xuat >/dev/null; ok="$ok #$n"; fi
   done
-  txt=$([ "$cmd" = duyet ] && echo "Đã duyệt, bắt tay làm:" || echo "Đã bỏ:")
+  txt=$([ "$cmd" = duyet ] && echo "👍 Đã duyệt, bắt tay làm:" || echo "🗑 Đã bỏ:")
   curl -s -m 15 -o /dev/null "$api/sendMessage" --data-urlencode chat_id="$TG_CHAT_ID" ${TG_THREAD_ID:+-d message_thread_id=$TG_THREAD_ID} \
     --data-urlencode text="${ok:+$txt$ok}${skip:+${ok:+ · }không phải đề xuất:$skip}" --data-urlencode reply_parameters="{\"message_id\":$msg}" || true
 done < <(tg_parse_cmd "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID")
 for msg in $(tg_parse_giao_empty "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID"); do
   curl -s -m 15 -o /dev/null "$api/sendMessage" --data-urlencode chat_id="$TG_CHAT_ID" ${TG_THREAD_ID:+-d message_thread_id=$TG_THREAD_ID} \
-    --data-urlencode text="Ghi kèm việc nha: /giao <việc cần làm>, vd /giao thêm nút xoá nhạc ở iOS và Android" \
+    --data-urlencode text="✍️ Ghi kèm việc nha: /giao <việc cần làm>" \
     --data-urlencode reply_parameters="{\"message_id\":$msg}" || true
 done
 [ "$ack" -gt 0 ] && curl -s -m 15 -o /dev/null "$api/getUpdates?offset=$ack&timeout=0" || true

@@ -21,7 +21,7 @@ title=$(gh issue view "$ISSUE" -R "$REPO" --json title -q .title)
 tg() { bash ../runner/scripts/tg.sh "$@"; }
 source ../runner/scripts/lib.sh
 idle=0
-tg "Bắt đầu #$ISSUE: $title"
+tg "🚀 **Bắt đầu #$ISSUE** — $title"
 
 # Chọn model (công thức ở README): label model:* thắng; bug/perf → opus; documentation/i18n → haiku; còn lại sonnet.
 # Loop không ra kết quả → nâng từng bậc (xem dưới vòng lặp).
@@ -49,7 +49,7 @@ while :; do
   rc=$?; grep '"type":"result"' "../claude-$round.jsonl" | tail -1 > "../claude-$round.json"
   l1=$(left); echo "issue #$ISSUE vòng $round ($MODEL): exit=$rc còn $l1 task"
   if [ "$rc" = 124 ]; then
-    idle=$(( ${idle:-0} + 1 )); tg "#$ISSUE: phiên Claude im 65 phút, khởi động lại ($idle/3)"
+    idle=$(( ${idle:-0} + 1 )); tg "♻️ **#$ISSUE** im 65 phút, khởi động lại ($idle/3)"
     [ "$idle" -ge 3 ] && break
     [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
     continue
@@ -101,14 +101,14 @@ fi
 gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}"$'\n\n'"$summary$shots" >/dev/null
 
 l=$(left)
-if [ "${QUOTA:-0}" = 1 ]; then st="hết hạn mức, tạm dừng"; elif [ "$l" = 0 ]; then st="xong"; elif [ "$l" = "$before" ]; then st="bị kẹt, cần mày xem"; else st="xong $((before - l))/$before task, lượt sau làm tiếp"; fi
+if [ "${QUOTA:-0}" = 1 ]; then ic="⏸"; st="hết hạn mức, tạm dừng"; elif [ "$l" = 0 ]; then ic="✅"; st="xong"; elif [ "$l" = "$before" ]; then ic="⚠️"; st="bị kẹt, cần mày xem"; else ic="🔄"; st="xong $((before - l))/$before task, lượt sau làm tiếp"; fi
 # Tin ngắn 1 dòng; chi tiết vào file .md đính kèm.
 rep="/tmp/bao-cao-issue-$ISSUE.md"
 { echo "# #$ISSUE — $title"; echo; echo "**Kết quả:** $st"; [ -n "$pr" ] && echo "**PR:** $pr"
   echo "**Issue:** https://github.com/$REPO/issues/$ISSUE"; echo; echo "## Bot báo cáo"; echo; echo "$summary"; } > "$rep"
 # Dòng ngắn: kết quả + điểm/tự tin + từng task (bot ghi theo khuôn ở prompt.md); chi tiết nằm trong file .md.
-score=$(grep -m1 -E '^ĐIỂM:' <<<"$summary"); tasks=$(grep -E '^[✔✘] Task' <<<"$summary" | head -12)
-tg --file "$rep" "#$ISSUE $st: $title${score:+$'\n'$score}${tasks:+$'\n'$tasks}"
+score=$(grep -m1 -E '^ĐIỂM:' <<<"$summary" | sed -E 's/ĐIỂM: *([0-9.]+\/10) *\| *TỰ TIN: *([0-9]+%)/⭐ **\1** · 🎯 tự tin **\2**/'); tasks=$(grep -E '^[✔✘] Task' <<<"$summary" | head -12 | sed -e 's/^✔/✅/' -e 's/^✘/❌/')
+tg --file "$rep" "$ic **#$ISSUE $st** — $title${score:+$'\n'$score}${tasks:+$'\n'$tasks}"
 if [ "${QUOTA:-0}" = 1 ]; then
   gh issue comment "$ISSUE" -R "$REPO" --body "Runner: hết hạn mức Claude, dừng. Giữ \`ci-run\`, lượt sau làm tiếp." >/dev/null
 elif [ "$l" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null

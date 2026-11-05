@@ -73,10 +73,10 @@ for n in $(jq -r --arg q "$quiet" '.[] | select(([.labels[].name] | index("ci-ru
   if [ "$k" -gt 3 ]; then
     priv issue edit "$n" --remove-label ci-run --add-label need-human >/dev/null
     priv issue comment "$n" --body "Runner: khởi động lại quá 3 lần, chờ owner xem." >/dev/null
-    tg "#$n đứng hình quá 3 lần, cần mày xem."; echo "issue #$n: need-human"
+    tg "🚧 **#$n đứng hình quá 3 lần** — cần mày xem"; echo "issue #$n: need-human"
   else
     priv issue comment "$n" --body "Runner: khởi động lại (lần $k/3) — job im hơn 180 phút." >/dev/null
-    tg "#$n đứng hình hơn 180 phút, khởi động lại (lần $k/3)."; echo "issue #$n: huỷ run kẹt, lần $k"
+    tg "♻️ **#$n** đứng hình hơn 180 phút, khởi động lại (lần $k/3)"; echo "issue #$n: huỷ run kẹt, lần $k"
   fi
 done
 
@@ -88,8 +88,8 @@ sn=$(priv issue list --label runner-state --state open -L 1 --json number -q '.[
 state=$(priv issue view "$sn" --json body -q .body | jq -c . 2>/dev/null || echo '{}')
 r=$(queue_alert "$waiting" "$running" "$state" "$(date +%s)")
 case "$(head -1 <<<"$r")" in
-  low) tg "Sắp hết việc: còn $running đang làm, $waiting chờ. Giao thêm bằng /giao <việc>." ;;
-  idle) tg "Đội rảnh, chưa có việc. Giao bằng /giao <việc>." ;;
+  low) tg "📭 **Sắp hết việc** — ⚙️ $running đang làm · 📋 $waiting chờ"$'\n'"👉 Giao thêm: /giao <việc>" ;;
+  idle) tg "😴 **Đội rảnh**, chưa có việc"$'\n'"👉 Giao: /giao <việc>" ;;
 esac
 new=$(tail -1 <<<"$r"); [ "$new" = "$state" ] || priv issue edit "$sn" --body "$new" >/dev/null
 echo "hàng chờ: $waiting chờ, $running chạy"
@@ -102,7 +102,7 @@ while IFS=$'\t' read -r pr head base; do
   n=${head#ci/issue-}; [[ "$n" =~ ^[0-9]+$ ]] || continue
   [ "$(priv issue view "$n" --json state -q .state 2>/dev/null)" = CLOSED ] || continue
   if GH_TOKEN="$PRIV_TOKEN" gh pr merge "$pr" -R "$PRIVATE_REPO" --merge >/dev/null 2>&1; then
-    echo "PR #$pr → $base: đã merge"; tg "Đã gộp #$n vào $base (PR #$pr)."
+    echo "PR #$pr → $base: đã merge"; tg "🔀 **Đã gộp #$n** vào $base (PR #$pr)"
   else
     f=$(mktemp); priv issue view "$n" --json body -q .body > "$f"
     grep -q 'Rebase lên' "$f" || printf '\n- [ ] Rebase lên %s, giải xung đột, chạy lại $TEST_CMD cho xanh\n' "$base" >> "$f"

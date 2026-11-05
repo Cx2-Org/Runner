@@ -49,6 +49,8 @@ rep=/tmp/bao-cao-sang.md
   echo; echo "## Đề xuất chờ duyệt"; [ -n "$note" ] && echo "> $note"
   gh issue list -R "$REPO" --state open --label de-xuat -L 50 --json number,title -q '.[] | "- #\(.number) \(.title)"'
   echo; echo "Duyệt: gõ \`/duyet <số …>\` trong topic · Bỏ: \`/bo <số …>\`"; } > "$rep"
-tg --file "$rep" "Báo cáo 8h: xong $n_done · đang chạy $n_run · còn $n_left · kẹt $n_human${new_ideas:+
-Đề xuất mới:$new_ideas — duyệt: /duyet <số>, bỏ: /bo <số>}"
+tg --file "$rep" "☀️ **Báo cáo 8h**
+✅ xong **$n_done** · ⚙️ đang chạy **$n_run** · 📋 còn **$n_left** · 🚧 kẹt **$n_human**${new_ideas:+
+💡 **Đề xuất mới:**$new_ideas
+👉 /duyet <số> để làm · /bo <số> để bỏ}"
 echo "báo cáo sáng: xong $n_done, đề xuất $(wc -w <<<"$new_ideas")"

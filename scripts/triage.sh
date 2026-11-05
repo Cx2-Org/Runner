@@ -21,7 +21,7 @@ ask() {
   done; rm -f "$err"; return 2
 }
 # Lỗi không phải hạn mức → gắn need-human + báo 1 lần, kẻo intake 5 phút/lần chạy lại opus mãi.
-fail() { tg "Việc #$ISSUE: $1, cần mày xem (gỡ need-human là tách lại)."; gh issue edit "$ISSUE" -R "$REPO" --add-label need-human >/dev/null; exit 1; }
+fail() { tg "🚧 **Việc #$ISSUE**: $1 — cần mày xem (gỡ need-human là tách lại)"; gh issue edit "$ISSUE" -R "$REPO" --add-label need-human >/dev/null; exit 1; }
 
 rm -f "$PLAN"
 ask triage; rc=$?
@@ -30,7 +30,7 @@ ask triage; rc=$?
 # Việc mơ hồ → hỏi owner NGAY (không đem đi duyệt). Owner trả lời bằng comment ở issue rồi gỡ need-human là tách lại.
 ask_owner() {
   local q; q=$(jq -r '.question // empty' "$PLAN" 2>/dev/null); [ -n "$q" ] || return 1
-  tg "Việc #$ISSUE cần hỏi lại: $q (trả lời bằng comment ở issue #$ISSUE rồi gỡ nhãn need-human)"
+  tg "❓ **Việc #$ISSUE cần hỏi lại:** $q"$'\n'"👉 Trả lời bằng comment ở issue #$ISSUE rồi gỡ nhãn need-human"
   gh issue comment "$ISSUE" -R "$REPO" --body "Trưởng nhóm hỏi: $q" >/dev/null
   gh issue edit "$ISSUE" -R "$REPO" --add-label need-human >/dev/null; exit 0
 }
@@ -67,7 +67,7 @@ if [ -n "$list" ]; then
   f=$(mktemp); { gh issue view "$ISSUE" -R "$REPO" --json body -q .body; printf '\n\n## Đã tách%s\n' "$list"; } > "$f"
   gh issue edit "$ISSUE" -R "$REPO" --body-file "$f" >/dev/null; rm -f "$f"
   rep="/tmp/chia-viec-$ISSUE.md"; printf '# Chia việc #%s\n\n%s\n' "$ISSUE" "$(tr ',' '\n' <<<"${ann#,}" | sed 's/^ */- /')" > "$rep"
-  tg --file "$rep" "Đã chia việc #$ISSUE thành $(grep -c '^- #' <<<"$list") phần"
+  tg --file "$rep" "🧩 **Đã chia việc #$ISSUE** thành $(grep -c '^- #' <<<"$list") phần"
 fi
 gh issue edit "$ISSUE" -R "$REPO" --remove-label inbox --add-label planned >/dev/null
 echo "triage #$ISSUE: xong"

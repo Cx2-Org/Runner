@@ -1,9 +1,10 @@
 {
   "_limits": {
-    "total": 20,
-    "macos-26": 5,
-    "ubuntu-latest": 20,
-    "windows-latest": 20
+    "total": 6,
+    "macos-26": 2,
+    "macos-15-intel": 2,
+    "ubuntu-latest": 6,
+    "windows-latest": 3
   },
   "ios": {
     "runs_on": "macos-26",

@@ -23,10 +23,12 @@ while IFS=$'\t' read -r n c; do [ -n "$n" ] || continue
 done < <(jq -r '.[] | "\(.number)\t\(.comments)"' <<<"$closed")
 runs=${runs:-[]}; open=${open:-[]}; closed=${closed:-[]}
 # Ghi ra file rồi --slurpfile: Linux giới hạn 128KB MỖI tham số → --argjson với 80 issue sẽ hỏng âm thầm.
-w=$(mktemp -d); for v in runs open lc closed rep; do printf '%s' "${!v}" > "$w/$v.json"; done
+lb24=$(REPO=$PRIVATE_REPO GH_TOKEN=$PRIV_TOKEN bash scripts/leaderboard.sh 24 2>/dev/null); lb24=${lb24:-null}
+lb7=$(REPO=$PRIVATE_REPO GH_TOKEN=$PRIV_TOKEN bash scripts/leaderboard.sh 168 2>/dev/null); lb7=${lb7:-null}
+w=$(mktemp -d); for v in runs open lc closed rep lb24 lb7; do printf '%s' "${!v}" > "$w/$v.json"; done
 out=$(jq -n --slurpfile runs "$w/runs.json" --slurpfile open "$w/open.json" --slurpfile lc "$w/lc.json" \
-  --slurpfile closed "$w/closed.json" --slurpfile rep "$w/rep.json" \
-  '{runs:$runs[0], open:$open[0], lastComment:$lc[0], closed:$closed[0], closedReport:$rep[0]}' | node scripts/status.js) || out=""
+  --slurpfile closed "$w/closed.json" --slurpfile rep "$w/rep.json" --slurpfile l24 "$w/lb24.json" --slurpfile l7 "$w/lb7.json" \
+  '{runs:$runs[0], open:$open[0], lastComment:$lc[0], closed:$closed[0], closedReport:$rep[0], lb24:$l24[0], lb7:$l7[0]}' | node scripts/status.js) || out=""
 rm -rf "$w"
 [ -n "$out" ] || { echo "không dựng được trạng thái"; exit 0; }
 [ -n "${DRY:-}" ] && { printf '%s' "$out"; exit 0; }

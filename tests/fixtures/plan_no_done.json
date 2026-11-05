@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "question": null,
+  "need_human": [],
+  "children": [
+    {
+      "platform": "android",
+      "title": "[android] Port A",
+      "body": "## Mục tiêu\nx\n## Task\n- [ ] a\n## Xong khi\n- test xanh",
+      "model": "sonnet",
+      "depends_on": [
+        "ios"
+      ]
+    },
+    {
+      "platform": "ios",
+      "title": "[ios] Làm A",
+      "body": "## Task\n- [ ] a",
+      "model": "opus",
+      "depends_on": []
+    }
+  ]
+}

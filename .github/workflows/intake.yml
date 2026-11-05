@@ -1,0 +1,54 @@
+name: intake
+# Nhận việc /giao từ topic Telegram → issue inbox → trưởng nhóm (Queenie) tách + duyệt + giao bot.
+on:
+  schedule: [{ cron: '*/5 * * * *' }]
+  workflow_dispatch:
+concurrency: { group: intake }
+permissions: { contents: read, actions: write }
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults: { run: { shell: bash } }
+    env:
+      GH_TOKEN: ${{ secrets.VIBECUT_PAT }}
+      REPO: nguyenphp/vibecut
+      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+      TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
+      TG_BOT_TOKEN_1: ${{ secrets.TG_BOT_TOKEN_1 }}
+      TG_BOT_TOKEN_2: ${{ secrets.TG_BOT_TOKEN_2 }}
+      TG_BOT_TOKEN_3: ${{ secrets.TG_BOT_TOKEN_3 }}
+    # Repo PUBLIC: không bước nào in nội dung việc / Claude.
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: runner }
+      - name: telegram
+        working-directory: runner
+        run: bash scripts/intake.sh
+      - name: còn việc chờ tách?
+        id: q
+        run: |
+          n=$(gh issue list -R "$REPO" --label inbox --state open -L 20 --json number,labels \
+            -q '[.[] | select([.labels[].name] | index("need-human") | not) | .number] | join(" ")')
+          echo "list=$n" >> "$GITHUB_OUTPUT"; echo "chờ tách: ${n:-không}"
+      - uses: actions/checkout@v4
+        if: steps.q.outputs.list != ''
+        with: { repository: nguyenphp/vibecut, token: '${{ secrets.VIBECUT_PAT }}', path: vibecut, fetch-depth: 1 }
+      - uses: actions/setup-node@v4
+        if: steps.q.outputs.list != ''
+        with: { node-version: '20' }
+      - name: trưởng nhóm tách + duyệt
+        if: steps.q.outputs.list != ''
+        working-directory: runner
+        env:
+          TOK_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_1 }}
+          TOK_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          TOK_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_3 }}
+          VIBECUT_DIR: ${{ github.workspace }}/vibecut
+        run: |
+          npm i -g --silent @anthropic-ai/claude-code
+          claude plugin marketplace add anthropics/claude-plugins-official >/dev/null
+          claude plugin install superpowers@claude-plugins-official >/dev/null || true
+          for n in ${{ steps.q.outputs.list }}; do bash scripts/triage.sh "$n" || echo "triage #$n lỗi"; done
+          # Có việc mới giao → gọi bộ điều phối ngay, khỏi chờ cron.
+          GH_TOKEN=${{ github.token }} gh workflow run dispatch.yml -R "$GITHUB_REPOSITORY" || true

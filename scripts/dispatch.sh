@@ -4,7 +4,7 @@
 # Log repo này PUBLIC: chỉ in số issue, không in tiêu đề/nội dung.
 # GH_TOKEN = token repo runner (mở job); PRIV_TOKEN = PAT repo private.
 set -euo pipefail
-PLATFORMS='["ios","mac","android","windows"]'
+PLATFORMS='["ios","mac","android","windows","linux"]'
 priv() { GH_TOKEN="$PRIV_TOKEN" gh "$@" -R "$PRIVATE_REPO"; }
 lim() { jq -r --arg k "$1" '._limits[$k] // ._limits.total' platforms.json; }
 

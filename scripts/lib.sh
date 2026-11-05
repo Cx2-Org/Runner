@@ -39,3 +39,19 @@ tg_parse_giao() {
     | select(.text != "")' "$1"
 }
 tg_max_update_id() { jq -r '[.result[].update_id] | max // empty' "$1"; }
+
+# Kế hoạch tách việc hợp lệ: nền tảng đã biết, mỗi issue con có "## Task" với ≥1 ô "- [ ]" và "## Xong khi".
+validate_plan() {
+  jq -e '(.children | type == "array") and all(.children[];
+    (.platform | IN("ios","android","mac","windows","linux"))
+    and (.body | test("## Task") and test("- \\[ \\]") and test("## Xong khi"))
+    and (.model | IN("opus","sonnet","haiku")))' "$1" >/dev/null 2>&1
+}
+# Bot ít việc nhất theo {"1":n,"2":n,"3":n}; hoà thì ưu tiên 2, 3 rồi 1 (Queenie là trưởng nhóm).
+pick_bot() { jq -r '. as $c | ["2","3","1"] | min_by($c[.] // 0)' <<<"$1"; }
+# Issue con xếp sao cho nền tảng được chờ (depends_on) tạo trước — để biết số # mà ghi "Chờ: #a".
+order_children() {
+  jq -c '.children as $c | [$c[] | .platform] as $all
+    | def lvl($p; $d): if $d > 5 then 0 else ([$c[] | select(.platform == $p) | .depends_on[]? | select(IN($all[])) | 1 + lvl(.; $d + 1)] | max // 0) end;
+    $c | map(. + {lvl: lvl(.platform; 0)}) | sort_by(.lvl) | .[] | del(.lvl)' "$1"
+}

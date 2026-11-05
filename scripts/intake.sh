@@ -28,6 +28,19 @@ while IFS= read -r m; do
     --data-urlencode text="Đã nhận, đang phân tích → ${url##*/} ($url)" \
     --data-urlencode reply_parameters="{\"message_id\":$msg}" -d disable_web_page_preview=true || true
 done < <(tg_parse_giao "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID")
+# /duyet N… → đề xuất thành việc thật (gỡ de-xuat, gắn ci-run); /bo N… → đóng đề xuất. CHỈ nhận issue đang có nhãn de-xuat.
+while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  cmd=$(jq -r .cmd <<<"$m"); msg=$(jq -r .msg_id <<<"$m"); ok=""; skip=""
+  for n in $(jq -r '.nums[]' <<<"$m"); do
+    if ! gh issue view "$n" -R "$REPO" --json labels -q '[.labels[].name] | index("de-xuat")' 2>/dev/null | grep -q '[0-9]'; then skip="$skip #$n"; continue; fi
+    if [ "$cmd" = duyet ]; then gh issue edit "$n" -R "$REPO" --remove-label de-xuat --add-label ci-run >/dev/null && ok="$ok #$n"
+    else gh issue close "$n" -R "$REPO" --reason "not planned" --comment "Owner bỏ đề xuất." >/dev/null && gh issue edit "$n" -R "$REPO" --remove-label de-xuat >/dev/null; ok="$ok #$n"; fi
+  done
+  txt=$([ "$cmd" = duyet ] && echo "Đã duyệt, bắt tay làm:" || echo "Đã bỏ:")
+  curl -s -m 15 -o /dev/null "$api/sendMessage" --data-urlencode chat_id="$TG_CHAT_ID" ${TG_THREAD_ID:+-d message_thread_id=$TG_THREAD_ID} \
+    --data-urlencode text="${ok:+$txt$ok}${skip:+${ok:+ · }không phải đề xuất:$skip}" --data-urlencode reply_parameters="{\"message_id\":$msg}" || true
+done < <(tg_parse_cmd "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID")
 for msg in $(tg_parse_giao_empty "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID"); do
   curl -s -m 15 -o /dev/null "$api/sendMessage" --data-urlencode chat_id="$TG_CHAT_ID" ${TG_THREAD_ID:+-d message_thread_id=$TG_THREAD_ID} \
     --data-urlencode text="Ghi kèm việc nha: /giao <việc cần làm>, vd /giao thêm nút xoá nhạc ở iOS và Android" \

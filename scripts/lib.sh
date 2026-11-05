@@ -91,3 +91,12 @@ base_branch() {
   local b; b=$(grep -m1 '^Nhánh gốc: ' <<<"$1" | sed 's/^Nhánh gốc: *//; s/[[:space:]]*$//')
   if [[ "$b" =~ ^[A-Za-z0-9._/-]+$ && "$b" != *..* ]]; then echo "$b"; else echo main; fi
 }
+
+# Lệnh duyệt đề xuất trong topic: "/duyet 101 #103", "/bo 102" → {"cmd":"duyet|bo","nums":[..],"msg_id":N}. Bỏ lệnh không có số.
+tg_parse_cmd() {
+  jq -c --arg c "$2" --arg t "$3" '.result[] | .message // empty
+    | select((.chat.id|tostring) == $c and ((.message_thread_id // "")|tostring) == $t)
+    | (.text // "") as $x | select($x | test("^/(duyet|bo)(@[A-Za-z0-9_]+)?(\\s|$)"))
+    | {cmd: ($x | capture("^/(?<c>duyet|bo)").c), nums: [$x | scan("#?([0-9]+)") | .[0] | tonumber], msg_id: .message_id}
+    | select(.nums | length > 0)' "$1"
+}

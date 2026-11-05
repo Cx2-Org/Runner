@@ -32,3 +32,9 @@ test_tg_parse_empty() {
   source scripts/lib.sh
   assert_eq 13 "$(tg_parse_giao_empty tests/fixtures/tg_updates.json -1004420681690 461)" parse_empty_ids
 }
+test_tg_parse_approve() {
+  source scripts/lib.sh
+  local out; out=$(tg_parse_cmd tests/fixtures/tg_cmds.json -1004420681690 461)
+  assert_eq "duyet 101 103
+bo 102" "$(jq -r '"\(.cmd) \(.nums | join(" "))"' <<<"$out")" parse_cmds
+}

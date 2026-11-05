@@ -1,0 +1,6 @@
+{"ok":true,"result":[
+ {"update_id":200,"message":{"message_id":31,"message_thread_id":461,"date":1,"from":{"first_name":"Q"},"chat":{"id":-1004420681690},"text":"/duyet 101 #103"}},
+ {"update_id":201,"message":{"message_id":32,"message_thread_id":461,"date":2,"from":{"first_name":"Q"},"chat":{"id":-1004420681690},"text":"/bo@captain_queenie_bot 102"}},
+ {"update_id":202,"message":{"message_id":33,"message_thread_id":999,"date":3,"from":{"first_name":"Q"},"chat":{"id":-1004420681690},"text":"/duyet 104"}},
+ {"update_id":203,"message":{"message_id":34,"message_thread_id":461,"date":4,"from":{"first_name":"Q"},"chat":{"id":-1004420681690},"text":"/duyet hết"}}
+]}

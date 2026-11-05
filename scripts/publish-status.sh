@@ -21,8 +21,15 @@ rep='{}'
 while IFS=$'\t' read -r n c; do [ -n "$n" ] || continue
   rep=$(jq --arg n "$n" --arg b "$(last_of "$n" "$c" '^[*][*]Runner[*][*]')" '. + {($n): $b}' <<<"$rep")
 done < <(jq -r '.[] | "\(.number)\t\(.comments)"' <<<"$closed")
-out=$(jq -n --argjson runs "$runs" --argjson open "$open" --argjson lc "$lc" --argjson closed "$closed" --argjson rep "$rep" \
-  '{runs:$runs, open:$open, lastComment:$lc, closed:$closed, closedReport:$rep}' | node scripts/status.js) || exit 0
+runs=${runs:-[]}; open=${open:-[]}; closed=${closed:-[]}
+# Ghi ra file rồi --slurpfile: Linux giới hạn 128KB MỖI tham số → --argjson với 80 issue sẽ hỏng âm thầm.
+w=$(mktemp -d); for v in runs open lc closed rep; do printf '%s' "${!v}" > "$w/$v.json"; done
+out=$(jq -n --slurpfile runs "$w/runs.json" --slurpfile open "$w/open.json" --slurpfile lc "$w/lc.json" \
+  --slurpfile closed "$w/closed.json" --slurpfile rep "$w/rep.json" \
+  '{runs:$runs[0], open:$open[0], lastComment:$lc[0], closed:$closed[0], closedReport:$rep[0]}' | node scripts/status.js) || out=""
+rm -rf "$w"
+[ -n "$out" ] || { echo "không dựng được trạng thái"; exit 0; }
+[ -n "${DRY:-}" ] && { printf '%s' "$out"; exit 0; }
 d=$(mktemp -d); printf '%s' "$out" > "$d/status.json"
 ( cd "$d" && git init -q -b status && git add status.json && git -c user.name=runner -c user.email=runner@users.noreply.github.com \
   commit -qm status && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" status ) && echo "đã đăng trạng thái"

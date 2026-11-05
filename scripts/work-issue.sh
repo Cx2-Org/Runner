@@ -7,6 +7,7 @@ set -uo pipefail
 export BRANCH=ci/issue-$ISSUE
 left() { gh issue view "$ISSUE" -R "$REPO" --json body -q .body | grep -c -- '- \[ \]' || true; }
 echo "$ISSUE" > /tmp/current_issue
+t0=$(date +%s)
 
 # Nhánh sạch cho issue này: tiếp nhánh cũ nếu có, không thì từ main.
 git reset -q --hard; git clean -fdq
@@ -98,17 +99,29 @@ if ls /tmp/shots/*.png >/dev/null 2>&1; then
     done
   fi
 fi
-gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}"$'\n\n'"$summary$shots" >/dev/null
+# Chi phí = tổng total_cost_usd mọi vòng (giá quy đổi API; gói thuê bao không trừ tiền thật) — dòng cố định để bảng xếp hạng đọc.
+cost=$(jq -s 'map(.total_cost_usd // 0) | add // 0' ../claude-*.json 2>/dev/null || echo 0)
+mins=$(( ( $(date +%s) - t0 ) / 60 ))
+costline=$(LC_ALL=C printf 'CHI PHÍ: $%.2f | PHÚT: %d | VÒNG: %d | MODEL: %s' "${cost:-0}" "$mins" "$round" "$MODEL")
+gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}"$'\n\n'"$summary"$'\n\n'"$costline$shots" >/dev/null
 
 l=$(left)
 if [ "${QUOTA:-0}" = 1 ]; then ic="⏸"; st="hết hạn mức, tạm dừng"; elif [ "$l" = 0 ]; then ic="✅"; st="xong"; elif [ "$l" = "$before" ]; then ic="⚠️"; st="bị kẹt, cần mày xem"; else ic="🔄"; st="xong $((before - l))/$before task, lượt sau làm tiếp"; fi
 # Tin ngắn 1 dòng; chi tiết vào file .md đính kèm.
-rep="/tmp/bao-cao-issue-$ISSUE.md"
-{ echo "# #$ISSUE — $title"; echo; echo "**Kết quả:** $st"; [ -n "$pr" ] && echo "**PR:** $pr"
-  echo "**Issue:** https://github.com/$REPO/issues/$ISSUE"; echo; echo "## Bot báo cáo"; echo; echo "$summary"; } > "$rep"
+# Báo cáo HTML đẹp (scripts/report.js) gửi kèm tin Telegram.
+rep="/tmp/bao-cao-issue-$ISSUE.html"
+case "${BOT_NO:-0}" in 1) bn="Captain Queenie" ;; 2) bn="Iron Man" ;; 3) bn="Spider Man" ;; *) bn="" ;; esac
+jq -n --arg n "$ISSUE" --arg t "$title" --arg st "$st" --arg ic "$ic" --arg bot "$bn" --arg repo "$REPO" --arg pr "$pr" \
+  --arg sum "$summary" --arg model "$MODEL" --argjson cost "${cost:-0}" --argjson mins "$mins" '
+  {number: ($n|tonumber), title: $t, status: $st, icon: $ic, bot: $bot, repo: $repo, pr: $pr, summary: $sum, model: $model, cost: $cost, mins: $mins,
+   score: (($sum | capture("ĐIỂM: *(?<s>[0-9.]+)/10") | .s | tonumber)? // null),
+   conf: (($sum | capture("TỰ TIN: *(?<c>[0-9]+)%") | .c | tonumber)? // null),
+   tasks: [$sum | split("\n")[] | select(test("^[✔✘] Task")) | {ok: startswith("✔"), text: sub("^[✔✘] "; "")}]}' \
+  | node ../runner/scripts/report.js issue > "$rep" 2>/dev/null || printf '%s' "$summary" > "$rep"
 # Dòng ngắn: kết quả + điểm/tự tin + từng task (bot ghi theo khuôn ở prompt.md); chi tiết nằm trong file .md.
 score=$(grep -m1 -E '^ĐIỂM:' <<<"$summary" | sed -E 's/ĐIỂM: *([0-9.]+\/10) *\| *TỰ TIN: *([0-9]+%)/⭐ **\1** · 🎯 tự tin **\2**/'); tasks=$(grep -E '^[✔✘] Task' <<<"$summary" | head -12 | sed -e 's/^✔/✅/' -e 's/^✘/❌/')
-tg --file "$rep" "$ic **#$ISSUE $st** — $title${score:+$'\n'$score}${tasks:+$'\n'$tasks}"
+money=$(LC_ALL=C printf '💰 **$%.2f** · ⏱ %d phút · %s' "${cost:-0}" "$mins" "$MODEL")
+tg --file "$rep" "$ic **#$ISSUE $st** — $title${score:+$'\n'$score}"$'\n'"$money${tasks:+$'\n'$tasks}"
 if [ "${QUOTA:-0}" = 1 ]; then
   gh issue comment "$ISSUE" -R "$REPO" --body "Runner: hết hạn mức Claude, dừng. Giữ \`ci-run\`, lượt sau làm tiếp." >/dev/null
 elif [ "$l" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null

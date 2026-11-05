@@ -16,6 +16,7 @@ ask() {
     out=$(cd "${VIBECUT_DIR:-$R/../vibecut}" && CLAUDE_CODE_OAUTH_TOKEN="$t" claude -p "$prompt" --model opus \
       --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh issue view:*),Bash(gh issue list:*),Bash(git log:*),Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(jq:*)" \
       --add-dir /tmp --output-format json 2>"$err")
+    TCOST=$(jq -n --argjson a "${TCOST:-0}" --argjson b "$(jq '.total_cost_usd // 0' <<<"$out" 2>/dev/null || echo 0)" '$a + $b')
     if jq -e '.is_error == false' <<<"$out" >/dev/null 2>&1; then rm -f "$err"; return 0; fi
     printf '%s\n' "$out" | cat - "$err" | grep -qiE 'usage limit|limit reached|rate.?limit|overloaded' || { rm -f "$err"; return 1; }
   done; rm -f "$err"; return 2
@@ -41,7 +42,7 @@ validate_plan "$PLAN" && jq -e '.ok == true' "$PLAN" >/dev/null || fail "kế ho
 # Đếm việc đang giữ của từng bot để rải đều.
 counts=$(gh issue list -R "$REPO" --state open --label ci-run -L 200 --json labels -q '[.[].labels[].name]' 2>/dev/null \
   | jq -c '{"1": map(select(.=="bot:queenie"))|length, "2": map(select(.=="bot:ironman"))|length, "3": map(select(.=="bot:spiderman"))|length}' 2>/dev/null || echo '{}')
-nums=" "; list=""; ann=""
+nums=" "; list=""; ann=""; parts=""
 num_of() { sed -n "s/.* $1=\([0-9]*\) .*/\1/p" <<<"$nums"; }
 while IFS= read -r c; do
   p=$(jq -r .platform <<<"$c")
@@ -55,6 +56,7 @@ while IFS= read -r c; do
   url=$(gh issue create -R "$REPO" --title "$(jq -r .title <<<"$c")" --body "$body" \
     --label "$p" --label "model:$m" --label "$(bot_label "$b")" --label ci-run) || continue
   n=${url##*/}; nums="$nums$p=$n "; list="$list"$'\n'"- #$n $p"
+  parts="$parts$n"$'\t'"$p"$'\t'"$(bot_name "$b")"$'\t'"$m"$'\t'"$wait"$'\n'
   ann="$ann, #$n $p → $(bot_name "$b") ($m)${wait:+ chờ $wait}"
 done < <(order_children "$PLAN")
 jq -c '.need_human[]?' "$PLAN" | while IFS= read -r h; do
@@ -66,8 +68,12 @@ done
 if [ -n "$list" ]; then
   f=$(mktemp); { gh issue view "$ISSUE" -R "$REPO" --json body -q .body; printf '\n\n## Đã tách%s\n' "$list"; } > "$f"
   gh issue edit "$ISSUE" -R "$REPO" --body-file "$f" >/dev/null; rm -f "$f"
-  rep="/tmp/chia-viec-$ISSUE.md"; printf '# Chia việc #%s\n\n%s\n' "$ISSUE" "$(tr ',' '\n' <<<"${ann#,}" | sed 's/^ */- /')" > "$rep"
+  rep="/tmp/chia-viec-$ISSUE.html"
+  jq -n --arg n "$ISSUE" --arg repo "$REPO" --arg title "$(gh issue view "$ISSUE" -R "$REPO" --json title -q .title)" --arg parts "$parts" '
+    {number: ($n|tonumber), repo: $repo, title: $title, parts: [$parts | split("\n")[] | select(length > 0) | split("\t") |
+      {number: (.[0]|tonumber), platform: .[1], bot: .[2], model: .[3], wait: .[4]}]}' | node "$R/scripts/report.js" split > "$rep"
   tg --file "$rep" "🧩 **Đã chia việc #$ISSUE** thành $(grep -c '^- #' <<<"$list") phần"
 fi
 gh issue edit "$ISSUE" -R "$REPO" --remove-label inbox --add-label planned >/dev/null
+gh issue comment "$ISSUE" -R "$REPO" --body "$(LC_ALL=C printf 'Runner: trưởng nhóm tách việc. CHI PHÍ: $%.2f | MODEL: opus | BOT: queenie' "${TCOST:-0}")" >/dev/null
 echo "triage #$ISSUE: xong"

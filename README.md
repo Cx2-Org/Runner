@@ -18,7 +18,7 @@ Gõ trong topic **Văn phòng làm việc CutCut** (group *CutCut Thông báo*):
 | Iron Man | `_2` | `TG_BOT_TOKEN_2` |
 | Spider Man | `_3` | `TG_BOT_TOKEN_3` |
 
-Kẹt: Claude im 45 phút → giết phiên, mở phiên mới (≤ 3 lần/job). Job im 120 phút → huỷ, chạy lại (≤ 3 lần, rồi `need-human`).
+Kẹt: Claude im 65 phút → giết phiên, mở phiên mới (≤ 3 lần/job). Job im 180 phút → huỷ, chạy lại (≤ 3 lần, rồi `need-human`).
 Hàng chờ còn ≤ 1 → Queenie nhắc "Sắp hết việc" (≤ 1 lần/3 giờ); hết sạch → "Đội rảnh" 1 lần.
 Trạng thái nhắc lưu ở issue nhãn `runner-state` (đừng đóng). Nhãn tạo bằng `bash scripts/setup-labels.sh`.
 

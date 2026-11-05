@@ -9,7 +9,7 @@ args=("$@")
 val() { for ((i=0;i<${#args[@]};i++)); do [ "${args[$i]}" = "$1" ] && { echo "${args[$((i+1))]}"; return; }; done; }
 case "$1 $2" in
   "issue list") jq --arg l "$(val --label)" '[.[] | select($l == "" or (.labels | index($l)))] | map({number, body, title, labels: [.labels[] | {name: .}]})' "$STUB/issues.json" | { q=$(val -q); if [ -n "$q" ]; then jq -r "$q"; else cat; fi; } ;;
-  "issue create")
+  "issue create") [ -f "$STUB/fail_create" ] && exit 1
     n=$(( $(jq length "$STUB/issues.json") + 1 ))
     labels=$(for ((i=0;i<${#args[@]};i++)); do [ "${args[$i]}" = "--label" ] && echo "${args[$((i+1))]}"; done | tr ',' '\n' | jq -R . | jq -s .)
     body=$(val --body); bf=$(val --body-file); [ -n "$bf" ] && body=$(cat "$bf")
@@ -25,6 +25,7 @@ case "$1 $2" in
         --body-file) jq --argjson n $n --arg v "$(cat "$v")" 'map(if .number==$n then .body = $v else . end)' "$STUB/issues.json" > "$STUB/t" ;;
         *) continue ;;
       esac; mv "$STUB/t" "$STUB/issues.json"; done ;;
+  "pr view") st=$(jq -r --arg b "$3" '.[$b] // empty' "$STUB/prs.json" 2>/dev/null); [ -n "$st" ] || exit 1; echo "$st" ;;
   "run list") echo '[]' | { q=$(val -q); if [ -n "$q" ]; then jq -r "$q"; else cat; fi; } ;;
   *) : ;;
 esac

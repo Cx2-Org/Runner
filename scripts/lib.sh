@@ -70,3 +70,12 @@ queue_alert() {
     else ["none", {last: $last, armed: $armed, idle_sent: false}] end
     | .[0], (.[1] | tojson)' <<<"$3"
 }
+
+# Issue #n được coi là xong để issue khác bắt đầu: PR nhánh ci/issue-n đã MERGE vào main (code có thật trên main);
+# không có PR (làm tay) thì issue đã đóng. dep_done <repo> <n>, exit 0 = xong.
+dep_done() {
+  local st; st=$(gh pr view "ci/issue-$2" -R "$1" --json state -q .state 2>/dev/null)
+  if [ -n "$st" ]; then [ "$st" = MERGED ]; else [ "$(gh issue view "$2" -R "$1" --json state -q .state 2>/dev/null)" = CLOSED ]; fi
+}
+# Còn phải chờ issue nào (in số, rỗng = được làm). blocked_open <repo> <body>
+blocked_open() { local b; for b in $(blocked_by "$2"); do dep_done "$1" "$b" || echo "$b"; done; }

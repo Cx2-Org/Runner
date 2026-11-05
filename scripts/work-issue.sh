@@ -36,13 +36,17 @@ round=0
 while :; do
   round=$((round + 1)); c0=$(git rev-list --count HEAD); l0=$(left)
   # Output chỉ ghi ra file — KHÔNG in console.
-  # Watchdog trong job: Claude không in gì 45 phút (build iOS sạch dài nhất ~30 phút) → giết, mở phiên mới.
-  run_with_idle_kill 2700 "../claude-$round.jsonl" -- claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" \
-    --dangerously-skip-permissions --add-dir /tmp --output-format stream-json --verbose 2>> ../claude.err
+  # Watchdog trong job: Claude không in gì 65 phút (> trần 1 lệnh Bash 60 phút) → giết, mở phiên mới.
+  # Bỏ chặn quyền nhưng CẤM CỨNG lệnh không đảo ngược được: push main/force, merge PR, gọi API/curl ra ngoài, đụng secret.
+  run_with_idle_kill 3900 "../claude-$round.jsonl" -- claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" \
+    --dangerously-skip-permissions --add-dir /tmp --output-format stream-json --verbose \
+    --disallowedTools "Bash(git push origin main*)" "Bash(git push origin HEAD:main*)" "Bash(git push --force*)" \
+      "Bash(git push -f*)" "Bash(gh pr merge*)" "Bash(gh api*)" "Bash(gh secret*)" "Bash(gh repo*)" "Bash(curl*)" \
+      "Bash(wget*)" "Bash(env*)" "Bash(printenv*)" 2>> ../claude.err
   rc=$?; grep '"type":"result"' "../claude-$round.jsonl" | tail -1 > "../claude-$round.json"
   l1=$(left); echo "issue #$ISSUE vòng $round ($MODEL): exit=$rc còn $l1 task"
   if [ "$rc" = 124 ]; then
-    idle=$(( ${idle:-0} + 1 )); tg "#$ISSUE: phiên Claude im 45 phút, khởi động lại ($idle/3)"
+    idle=$(( ${idle:-0} + 1 )); tg "#$ISSUE: phiên Claude im 65 phút, khởi động lại ($idle/3)"
     [ "$idle" -ge 3 ] && break
     [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
     continue

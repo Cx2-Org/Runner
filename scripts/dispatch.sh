@@ -47,9 +47,8 @@ while read -r row; do
     priv issue edit "$n" --remove-label ci-run >/dev/null; echo "issue #$n: $p chưa cấu hình"; continue
   fi
   # Issue con chờ issue khác (dòng "Chờ: #a") → để sau khi #a đóng.
-  wait=""; for b in $(blocked_by "$(jq -r --argjson n "$n" '.[] | select(.number == $n) | .body' <<<"$issues")"); do
-    [ "$(priv issue view "$b" --json state -q .state 2>/dev/null)" = OPEN ] && wait="$wait #$b"; done
-  if [ -n "$wait" ]; then echo "issue #$n: chờ$wait"; continue; fi
+  wait=$(GH_TOKEN="$PRIV_TOKEN" blocked_open "$PRIVATE_REPO" "$(jq -r --argjson n "$n" '.[] | select(.number == $n) | .body' <<<"$issues")" | sed 's/^/#/' | xargs)
+  if [ -n "$wait" ]; then echo "issue #$n: chờ $wait"; continue; fi
   os=$(jq -r --arg p "$p" '.[$p].runs_on' platforms.json)
   if [ "$(uget "$os")" -ge "$(lim "$os")" ]; then echo "issue #$n: $os đủ $(lim "$os") job, chờ"; continue; fi
   priv issue edit "$n" --add-label ci-running >/dev/null
@@ -59,10 +58,10 @@ while read -r row; do
 done < <(jq -c --argjson P "$PLATFORMS" '.[] | select([.labels[].name] | index("ci-running") | not)
   | {n: .number, p: ([.labels[].name] | map(select(. as $x | $P | index($x))) | .[0])}' <<<"$issues")
 
-# Watchdog ngoài: job "issue-N" đang chạy mà issue + nhánh ci/issue-N im > 120 phút → huỷ run (bước release của job
+# Watchdog ngoài: job "issue-N" đang chạy mà issue + nhánh ci/issue-N im > 180 phút → huỷ run (bước release của job
 # tự nhả nhãn), lượt sau chạy lại. Quá 3 lần → need-human. Issue do job khác nhận tiếp (run-name không khớp) thì để
 # watchdog trong job (45 phút) + dọn treo 6.5 giờ lo. ponytail: không lưu run id theo issue.
-quiet=$(date -u -d '-120 minutes' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-120M +%Y-%m-%dT%H:%M:%SZ)
+quiet=$(date -u -d '-180 minutes' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-180M +%Y-%m-%dT%H:%M:%SZ)
 for n in $(jq -r --arg q "$quiet" '.[] | select(([.labels[].name] | index("ci-running")) and .updatedAt < $q) | .number' <<<"$issues"); do
   run=$(gh run list --workflow run-cluster.yml -L 100 --json databaseId,status,displayTitle \
     -q "[.[] | select(.status == \"in_progress\" and (.displayTitle | startswith(\"issue-$n \")))][0].databaseId // empty" || true)
@@ -76,8 +75,8 @@ for n in $(jq -r --arg q "$quiet" '.[] | select(([.labels[].name] | index("ci-ru
     priv issue comment "$n" --body "Runner: khởi động lại quá 3 lần, chờ owner xem." >/dev/null
     tg "#$n đứng hình quá 3 lần, cần mày xem."; echo "issue #$n: need-human"
   else
-    priv issue comment "$n" --body "Runner: khởi động lại (lần $k/3) — job im hơn 120 phút." >/dev/null
-    tg "#$n đứng hình hơn 120 phút, khởi động lại (lần $k/3)."; echo "issue #$n: huỷ run kẹt, lần $k"
+    priv issue comment "$n" --body "Runner: khởi động lại (lần $k/3) — job im hơn 180 phút." >/dev/null
+    tg "#$n đứng hình hơn 180 phút, khởi động lại (lần $k/3)."; echo "issue #$n: huỷ run kẹt, lần $k"
   fi
 done
 

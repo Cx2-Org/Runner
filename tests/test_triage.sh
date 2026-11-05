@@ -21,3 +21,22 @@ test_triage_idempotent() {
     assert_eq "planned" "$(jq -r '.[] | select(.number==1) | .labels | join(",")' "$STUB/issues.json")" triage_parent_planned
     echo "$PASS $FAIL" > /tmp/triage_counts ); read -r PASS FAIL < /tmp/triage_counts
 }
+test_triage_claude_error_stops_loop() {
+  ( source tests/stubs.sh; make_stubs
+    jq '. + [{number:1,title:"V",body:"x",labels:["inbox"],state:"OPEN"}]' "$STUB/issues.json" > "$STUB/t" && mv "$STUB/t" "$STUB/issues.json"
+    printf '#!/bin/bash\necho "claude $*" >> "$STUB/log"; echo "{\\"is_error\\":true,\\"result\\":\\"lỗi lạ\\"}"; echo "warning: node" >&2\n' > "$STUB/bin/claude"; chmod +x "$STUB/bin/claude"
+    export REPO=x/y TOK_1=a VIBECUT_DIR="$STUB" TG_BOT_TOKEN_1=t TG_CHAT_ID=1; rm -f /tmp/plan-1.json
+    bash scripts/triage.sh 1 >/dev/null 2>&1
+    assert_eq 1 "$(jq -r '.[] | select(.number==1) | .labels | index("need-human") | if . then 1 else 0 end' "$STUB/issues.json")" triage_error_need_human
+    assert_eq 1 "$(grep -c 'sendMessage' "$STUB/log")" triage_error_tg
+    echo "$PASS $FAIL" > /tmp/t_counts ); read -r PASS FAIL < /tmp/t_counts
+}
+test_triage_stderr_noise_ok() {
+  ( source tests/stubs.sh; make_stubs
+    jq '. + [{number:1,title:"V",body:"x",labels:["inbox"],state:"OPEN"}]' "$STUB/issues.json" > "$STUB/t" && mv "$STUB/t" "$STUB/issues.json"
+    printf '#!/bin/bash\ncp "%s" "$PLAN"; echo "{\\"is_error\\":false,\\"result\\":\\"ok\\"}"; echo "update available" >&2\n' "$PWD/tests/fixtures/plan_ok.json" > "$STUB/bin/claude"; chmod +x "$STUB/bin/claude"
+    export REPO=x/y TOK_1=a VIBECUT_DIR="$STUB"; rm -f /tmp/plan-1.json
+    bash scripts/triage.sh 1 >/dev/null 2>&1
+    assert_eq 2 "$(grep -c '^gh issue create' "$STUB/log")" triage_stderr_noise
+    echo "$PASS $FAIL" > /tmp/t_counts ); read -r PASS FAIL < /tmp/t_counts
+}

@@ -27,3 +27,20 @@ test_dispatch_queue_alert() {
     assert_eq 1 "$(jq '[.[] | select(.labels | index("runner-state"))] | length' "$STUB/issues.json")" dispatch_state_issue
     echo "$PASS $FAIL" > /tmp/disp_counts ); read -r PASS FAIL < /tmp/disp_counts
 }
+test_claim_next_skips_blocked() {
+  ( source tests/stubs.sh; make_stubs
+    jq '. + [{number:5,title:"a",body:"x\nChờ: #4",labels:["ci-run","android"],state:"OPEN"},
+             {number:4,title:"i",body:"x",labels:["ios"],state:"OPEN"},
+             {number:6,title:"b",body:"y",labels:["ci-run","android"],state:"OPEN"}]' "$STUB/issues.json" > "$STUB/t" && mv "$STUB/t" "$STUB/issues.json"
+    export REPO=x/y PLATFORM=android
+    assert_eq 6 "$(bash scripts/claim-next.sh 2>/dev/null)" claim_skips_blocked
+    echo "$PASS $FAIL" > /tmp/t_counts ); read -r PASS FAIL < /tmp/t_counts
+}
+test_dep_done() {
+  ( source tests/stubs.sh; make_stubs; source scripts/lib.sh
+    jq '. + [{number:4,title:"i",body:"x",labels:[],state:"CLOSED"},{number:7,title:"j",body:"x",labels:[],state:"CLOSED"}]' "$STUB/issues.json" > "$STUB/t" && mv "$STUB/t" "$STUB/issues.json"
+    echo '{"ci/issue-4":"OPEN","ci/issue-7":"MERGED"}' > "$STUB/prs.json"
+    dep_done x/y 4; assert_eq 1 $? dep_pr_unmerged
+    dep_done x/y 7; assert_eq 0 $? dep_pr_merged
+    echo "$PASS $FAIL" > /tmp/t_counts ); read -r PASS FAIL < /tmp/t_counts
+}

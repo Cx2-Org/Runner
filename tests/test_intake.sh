@@ -19,3 +19,12 @@ test_intake_idempotent() {
     assert_eq 1 "$(grep -c 'offset=107' "$STUB/log" | tr -d ' ' | sed 's/^[2-9]$/1/')" intake_ack
     echo "$PASS $FAIL" > /tmp/intake_counts ); read -r PASS FAIL < /tmp/intake_counts
 }
+test_intake_create_fail_no_ack() {
+  ( source tests/stubs.sh; make_stubs
+    cp tests/fixtures/tg_updates.json "$STUB/updates.json"; touch "$STUB/fail_create"
+    export REPO=x/y TG_BOT_TOKEN_1=t TG_CHAT_ID=-1004420681690 TG_THREAD_ID=461
+    bash scripts/intake.sh >/dev/null 2>&1
+    assert_eq 0 "$(grep -c 'offset=107' "$STUB/log")" intake_fail_no_full_ack
+    assert_eq 1 "$(grep -c 'offset=100' "$STUB/log")" intake_fail_ack_before
+    echo "$PASS $FAIL" > /tmp/t_counts ); read -r PASS FAIL < /tmp/t_counts
+}

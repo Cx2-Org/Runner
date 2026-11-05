@@ -6,25 +6,29 @@ R=$(cd "$(dirname "$0")/.." && pwd); source "$R/scripts/lib.sh"
 export ISSUE=$1 PLAN="/tmp/plan-$1.json"
 tg() { BOT_NO=1 bash "$R/scripts/tg.sh" "$1"; }
 
-# claude -p với xoay token 1 → 2 → 3 khi hết hạn mức. In 0 nếu chạy được.
+# claude -p với xoay token 1 → 2 → 3 khi hết hạn mức. Trả 0 xong, 2 hết hạn mức cả 3, 1 lỗi khác.
+# Trưởng nhóm chỉ đọc issue + ghi file kế hoạch: quyền HẸP (không cần bỏ chặn như nhân viên).
 toks=(); for t in "${TOK_1:-}" "${TOK_2:-}" "${TOK_3:-}"; do [ -n "$t" ] && toks+=("$t"); done
 ask() {
-  local prompt; prompt=$(envsubst '$ISSUE $REPO $PLAN' < "$R/prompts/$1.md" 2>/dev/null || sed "s|\$ISSUE|$ISSUE|g; s|\$REPO|$REPO|g; s|\$PLAN|$PLAN|g" "$R/prompts/$1.md")
+  local prompt out err; err=$(mktemp)
+  prompt=$(sed "s|\$ISSUE|$ISSUE|g; s|\$REPO|$REPO|g; s|\$PLAN|$PLAN|g" "$R/prompts/$1.md")
   for t in "${toks[@]}"; do
     out=$(cd "${VIBECUT_DIR:-$R/../vibecut}" && CLAUDE_CODE_OAUTH_TOKEN="$t" claude -p "$prompt" --model opus \
-      --dangerously-skip-permissions --add-dir /tmp --output-format json 2>&1)
-    jq -e '.is_error == false' <<<"$(tail -1 <<<"$out")" >/dev/null 2>&1 && return 0
-    grep -qiE 'usage limit|limit reached|rate.?limit|overloaded' <<<"$out" || return 1
-  done; return 1
+      --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh issue view:*),Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(jq:*)" \
+      --add-dir /tmp --output-format json 2>"$err")
+    if jq -e '.is_error == false' <<<"$out" >/dev/null 2>&1; then rm -f "$err"; return 0; fi
+    printf '%s\n' "$out" | cat - "$err" | grep -qiE 'usage limit|limit reached|rate.?limit|overloaded' || { rm -f "$err"; return 1; }
+  done; rm -f "$err"; return 2
 }
+# Lỗi không phải hạn mức → gắn need-human + báo 1 lần, kẻo intake 5 phút/lần chạy lại opus mãi.
+fail() { tg "Việc #$ISSUE: $1, cần mày xem (gỡ need-human là tách lại)."; gh issue edit "$ISSUE" -R "$REPO" --add-label need-human >/dev/null; exit 1; }
 
-children() { gh issue list -R "$REPO" --state all -L 200 --json number,body -q ".[] | select(.body | contains(\"parent:#$ISSUE \")) | .number"; }
-# Kế hoạch: chạy lại triage mà con đã đủ (có plan cũ) thì bỏ qua phiên Claude.
-if [ ! -s "$PLAN" ] || ! validate_plan "$PLAN"; then
-  rm -f "$PLAN"; ask triage || { echo "triage #$ISSUE: Claude lỗi"; exit 1; }
-  for _ in 1 2; do ask review; validate_plan "$PLAN" && jq -e .ok "$PLAN" >/dev/null && break; done
-fi
-validate_plan "$PLAN" || { tg "Việc #$ISSUE: kế hoạch không hợp lệ sau 2 vòng duyệt, cần owner xem."; gh issue edit "$ISSUE" -R "$REPO" --add-label need-human >/dev/null; exit 1; }
+rm -f "$PLAN"
+ask triage; rc=$?
+[ $rc = 2 ] && { echo "triage #$ISSUE: hết hạn mức, để lượt sau"; exit 0; }
+[ $rc = 0 ] || fail "trưởng nhóm lỗi khi tách việc"
+for _ in 1 2; do validate_plan "$PLAN" && jq -e '.ok == true' "$PLAN" >/dev/null && break; ask review || break; done
+validate_plan "$PLAN" && jq -e '.ok == true' "$PLAN" >/dev/null || fail "kế hoạch chưa đạt sau 2 vòng duyệt"
 
 q=$(jq -r '.question // empty' "$PLAN")
 if [ -n "$q" ]; then
@@ -38,7 +42,8 @@ nums=" "; list=""; ann=""
 num_of() { sed -n "s/.* $1=\([0-9]*\) .*/\1/p" <<<"$nums"; }
 while IFS= read -r c; do
   p=$(jq -r .platform <<<"$c")
-  existing=$(gh issue list -R "$REPO" --state all -L 200 --json number,body -q ".[] | select(.body | contains(\"parent:#$ISSUE platform:$p \")) | .number" | head -1)
+  existing=$(gh issue list -R "$REPO" --state all -L 500 --json number,body -q ".[] | select(.body | contains(\"parent:#$ISSUE platform:$p \")) | .number") || fail "không đọc được danh sách issue"
+  existing=$(head -1 <<<"$existing")
   if [ -n "$existing" ]; then nums="$nums$p=$existing "; continue; fi
   b=$(pick_bot "$counts"); counts=$(jq -c --arg b "$b" '.[$b] = ((.[$b] // 0) + 1)' <<<"$counts")
   m=$(jq -r .model <<<"$c")
@@ -50,8 +55,9 @@ while IFS= read -r c; do
   ann="$ann, #$n $p → $(bot_name "$b") ($m)${wait:+ chờ $wait}"
 done < <(order_children "$PLAN")
 jq -c '.need_human[]?' "$PLAN" | while IFS= read -r h; do
+  gh issue list -R "$REPO" --state all -L 200 --json body -q '.[].body' | grep -qF "parent:#$ISSUE platform:need-human $(jq -r .title <<<"$h" | cksum | cut -d' ' -f1)" && continue
   gh issue create -R "$REPO" --label need-human --title "Cần duyệt: $(jq -r .title <<<"$h")" \
-    --body "$(jq -r .body <<<"$h")"$'\n\n'"Từ việc #$ISSUE <!-- parent:#$ISSUE platform:need-human -->" >/dev/null
+    --body "$(jq -r .body <<<"$h")"$'\n\n'"Từ việc #$ISSUE <!-- parent:#$ISSUE platform:need-human $(jq -r .title <<<"$h" | cksum | cut -d' ' -f1) -->" >/dev/null
 done
 
 if [ -n "$list" ]; then

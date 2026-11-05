@@ -22,7 +22,7 @@ while IFS= read -r m; do
   body="$text"$'\n\n'"— giao bởi $from qua Telegram, $(date -u -r "$(jq -r .date <<<"$m")" +%F\ %H:%MZ 2>/dev/null || date -u -d "@$(jq -r .date <<<"$m")" +%F\ %H:%MZ)"$'\n'"<!-- $key -->"
   # Tạo lỗi → chỉ ack các tin TRƯỚC tin này (lượt sau thử lại), báo owner 1 lần.
   url=$(gh issue create -R "$REPO" --label inbox --title "$title" --body "$body") || {
-    ack=$(jq -r .update_id <<<"$m"); BOT_NO=1 bash scripts/tg.sh "Không tạo được issue cho /giao (GitHub lỗi), sẽ thử lại."; break; }
+    ack=$(jq -r .update_id <<<"$m"); BOT_NO=1 bash scripts/tg.sh "⚠️ **Chưa tạo được việc** cho /giao (GitHub lỗi) — 5 phút nữa thử lại"; break; }
   known="$known"$'\n'"<!-- $key -->"; n_new=$((n_new + 1))
   curl -s -m 15 -o /dev/null "$api/sendMessage" --data-urlencode chat_id="$TG_CHAT_ID" ${TG_THREAD_ID:+-d message_thread_id=$TG_THREAD_ID} \
     --data-urlencode text="📥 Đã nhận, đang phân tích → #${url##*/}" \

@@ -108,8 +108,8 @@ jobs:
             export CLAUDE_CODE_OAUTH_TOKEN="${toks[$ti]}" BOT_NO="${nos[$ti]}"
             if ! bash ../runner/scripts/work-issue.sh; then
               tried=$((tried + 1))
-              [ $tried -ge ${#toks[@]} ] && { echo "hết hạn mức cả ${#toks[@]} tài khoản Claude, dừng runner"; bash ../runner/scripts/tg.sh "Hết hạn mức cả ${#toks[@]} tài khoản Claude, runner dừng."; break; }
-              bash ../runner/scripts/tg.sh "Hết hạn mức, nhường issue #$ISSUE cho bot kế."
+              [ $tried -ge ${#toks[@]} ] && { echo "hết hạn mức cả ${#toks[@]} tài khoản Claude, dừng runner"; bash ../runner/scripts/tg.sh "⏸ **Cả ${#toks[@]} tài khoản hết hạn mức** — runner tạm dừng, tự chạy lại khi có hạn mức"; break; }
+              bash ../runner/scripts/tg.sh "🔁 **Hết hạn mức** — nhường #$ISSUE cho bot kế"
               ti=$(( (ti + 1) % ${#toks[@]} )); echo "tài khoản hết hạn mức → đổi sang tài khoản #$((ti + 1))"; continue
             fi
             tried=0

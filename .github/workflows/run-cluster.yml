@@ -18,6 +18,12 @@ jobs:
       REPO: nguyenphp/vibecut
       ISSUE: ${{ inputs.issue }}
       PLATFORM: ${{ inputs.platform }}
+      # Telegram: 1 bot riêng mỗi tài khoản Claude (TG_BOT_TOKEN_1..3) hoặc 1 bot chung; thiếu thì không báo.
+      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+      TG_BOT_TOKEN_1: ${{ secrets.TG_BOT_TOKEN_1 }}
+      TG_BOT_TOKEN_2: ${{ secrets.TG_BOT_TOKEN_2 }}
+      TG_BOT_TOKEN_3: ${{ secrets.TG_BOT_TOKEN_3 }}
       # SDK quảng cáo Tevo (io.mmonetize) nằm ở Nexus riêng; thiếu thì gradle không resolve được.
       ORG_GRADLE_PROJECT_tevoNexusMavenUrl: ${{ secrets.TEVO_NEXUS_URL }}
       ORG_GRADLE_PROJECT_tevoNexusUsername: ${{ secrets.TEVO_NEXUS_USERNAME }}
@@ -91,15 +97,16 @@ jobs:
           # Chỉ cho Claude dùng danh sách lệnh dưới; lệnh ngoài danh sách bị từ chối → Claude ghi BỎ QUA/need-human.
           # ponytail: allowlist tĩnh; thiếu lệnh nào (vd ruby cho xcodeproj) thì thêm vào đây.
           export ALLOWED="Read,Edit,Write,Glob,Grep,Skill,TodoWrite,Agent,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*),Bash(adb:*),Bash(open:*),Bash(screencapture:*),Bash(pkill:*),Bash(mkdir:*),Bash(cp:*),Bash(sleep:*),Bash(sips:*),Bash(axe:*)"
-          toks=(); for t in "$TOK_1" "$TOK_2" "$TOK_3" "$TOK_0"; do [ -n "$t" ] && toks+=("$t"); done
+          toks=(); nos=(); i=0; for t in "$TOK_1" "$TOK_2" "$TOK_3" "$TOK_0"; do i=$((i+1)); [ -n "$t" ] && { toks+=("$t"); nos+=($(( i % 4 ))); }; done
           [ ${#toks[@]} -gt 0 ] || { echo "thiếu secret CLAUDE_CODE_OAUTH_TOKEN_1..3"; exit 1; }
           # Rải issue đều cho các tài khoản; acc hết hạn mức thì đổi acc kế tiếp, hết cả thì dừng. Không in token.
           ti=$(( ISSUE % ${#toks[@]} )); tried=0
           while :; do
-            export CLAUDE_CODE_OAUTH_TOKEN="${toks[$ti]}"
+            export CLAUDE_CODE_OAUTH_TOKEN="${toks[$ti]}" BOT_NO="${nos[$ti]}"
             if ! bash ../runner/scripts/work-issue.sh; then
               tried=$((tried + 1))
-              [ $tried -ge ${#toks[@]} ] && { echo "hết hạn mức cả ${#toks[@]} tài khoản Claude, dừng runner"; break; }
+              [ $tried -ge ${#toks[@]} ] && { echo "hết hạn mức cả ${#toks[@]} tài khoản Claude, dừng runner"; bash ../runner/scripts/tg.sh "Hết hạn mức cả ${#toks[@]} tài khoản Claude, runner dừng."; break; }
+              bash ../runner/scripts/tg.sh "Hết hạn mức, nhường issue #$ISSUE cho bot kế."
               ti=$(( (ti + 1) % ${#toks[@]} )); echo "tài khoản hết hạn mức → đổi sang tài khoản #$((ti + 1))"; continue
             fi
             tried=0

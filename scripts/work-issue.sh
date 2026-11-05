@@ -14,6 +14,9 @@ if git fetch -q --depth 1 origin "$BRANCH" 2>/dev/null; then git checkout -qB "$
 else git fetch -q --depth 1 origin main && git checkout -qB "$BRANCH" FETCH_HEAD; fi
 rm -rf /tmp/shots ../claude-*.json ../claude.err; mkdir -p /tmp/shots
 before=$(left)
+title=$(gh issue view "$ISSUE" -R "$REPO" --json title -q .title)
+tg() { bash ../runner/scripts/tg.sh "$1"; }
+tg "Bắt đầu #$ISSUE ($PLATFORM): $title — $before task. https://github.com/$REPO/issues/$ISSUE"
 
 # Chọn model (công thức ở README): label model:* thắng; bug/perf → opus; documentation/i18n → haiku; còn lại sonnet.
 # Loop không ra kết quả → nâng từng bậc (xem dưới vòng lặp).
@@ -34,6 +37,7 @@ while :; do
   claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" --allowedTools "$ALLOWED" --add-dir /tmp \
     --output-format json > "../claude-$round.json" 2>> ../claude.err
   rc=$?; l1=$(left); echo "issue #$ISSUE vòng $round ($MODEL): exit=$rc còn $l1 task"
+  tg "#$ISSUE vòng $round ($MODEL): còn $l1/$before task"
   # Hết hạn mức Claude: dừng hẳn, KHÔNG coi là bế tắc (giữ ci-run cho lượt sau).
   # Chỉ xét khi phiên kết thúc LỖI (is_error / không ra JSON), kẻo chữ "429" trong tóm tắt bình thường bị bắt nhầm.
   if ! jq -e '.is_error == false' "../claude-$round.json" >/dev/null 2>&1 \
@@ -81,6 +85,8 @@ fi
 gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — $pr}"$'\n\n'"$summary$shots" >/dev/null
 
 l=$(left)
+if [ "${QUOTA:-0}" = 1 ]; then st="hết hạn mức, dừng"; elif [ "$l" = 0 ]; then st="XONG hết task"; elif [ "$l" = "$before" ]; then st="kẹt, không xong thêm task nào (đã gỡ ci-run)"; else st="còn $l task, lượt sau làm tiếp"; fi
+tg "#$ISSUE $st.${pr:+ PR: $pr}"$'\n\n'"${summary:0:1500}"
 if [ "${QUOTA:-0}" = 1 ]; then
   gh issue comment "$ISSUE" -R "$REPO" --body "Runner: hết hạn mức Claude, dừng. Giữ \`ci-run\`, lượt sau làm tiếp." >/dev/null
 elif [ "$l" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null

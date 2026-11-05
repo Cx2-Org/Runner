@@ -14,7 +14,7 @@ ask() {
   prompt=$(sed "s|\$ISSUE|$ISSUE|g; s|\$REPO|$REPO|g; s|\$PLAN|$PLAN|g" "$R/prompts/$1.md")
   for t in "${toks[@]}"; do
     out=$(cd "${VIBECUT_DIR:-$R/../vibecut}" && CLAUDE_CODE_OAUTH_TOKEN="$t" claude -p "$prompt" --model opus \
-      --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh issue view:*),Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(jq:*)" \
+      --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh issue view:*),Bash(gh issue list:*),Bash(git log:*),Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(jq:*)" \
       --add-dir /tmp --output-format json 2>"$err")
     if jq -e '.is_error == false' <<<"$out" >/dev/null 2>&1; then rm -f "$err"; return 0; fi
     printf '%s\n' "$out" | cat - "$err" | grep -qiE 'usage limit|limit reached|rate.?limit|overloaded' || { rm -f "$err"; return 1; }
@@ -27,13 +27,16 @@ rm -f "$PLAN"
 ask triage; rc=$?
 [ $rc = 2 ] && { echo "triage #$ISSUE: hết hạn mức, để lượt sau"; exit 0; }
 [ $rc = 0 ] || fail "trưởng nhóm lỗi khi tách việc"
-for _ in 1 2; do validate_plan "$PLAN" && jq -e '.ok == true' "$PLAN" >/dev/null && break; ask review || break; done
+# Việc mơ hồ → hỏi owner NGAY (không đem đi duyệt). Owner trả lời bằng comment ở issue rồi gỡ need-human là tách lại.
+ask_owner() {
+  local q; q=$(jq -r '.question // empty' "$PLAN" 2>/dev/null); [ -n "$q" ] || return 1
+  tg "Việc #$ISSUE cần hỏi lại: $q (trả lời bằng comment ở issue #$ISSUE rồi gỡ nhãn need-human)"
+  gh issue comment "$ISSUE" -R "$REPO" --body "Trưởng nhóm hỏi: $q" >/dev/null
+  gh issue edit "$ISSUE" -R "$REPO" --add-label need-human >/dev/null; exit 0
+}
+ask_owner
+for _ in 1 2; do validate_plan "$PLAN" && jq -e '.ok == true' "$PLAN" >/dev/null && break; ask review || break; ask_owner; done
 validate_plan "$PLAN" && jq -e '.ok == true' "$PLAN" >/dev/null || fail "kế hoạch chưa đạt sau 2 vòng duyệt"
-
-q=$(jq -r '.question // empty' "$PLAN")
-if [ -n "$q" ]; then
-  tg "Việc #$ISSUE cần hỏi lại: $q"; gh issue edit "$ISSUE" -R "$REPO" --add-label need-human >/dev/null; exit 0
-fi
 
 # Đếm việc đang giữ của từng bot để rải đều.
 counts=$(gh issue list -R "$REPO" --state open --label ci-run -L 200 --json labels -q '[.[].labels[].name]' 2>/dev/null \

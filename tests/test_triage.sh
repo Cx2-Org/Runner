@@ -40,3 +40,13 @@ test_triage_stderr_noise_ok() {
     assert_eq 2 "$(grep -c '^gh issue create' "$STUB/log")" triage_stderr_noise
     echo "$PASS $FAIL" > /tmp/t_counts ); read -r PASS FAIL < /tmp/t_counts
 }
+test_triage_question_asks_owner() {
+  ( source tests/stubs.sh; make_stubs
+    jq '. + [{number:1,title:"V",body:"x",labels:["inbox"],state:"OPEN"}]' "$STUB/issues.json" > "$STUB/t" && mv "$STUB/t" "$STUB/issues.json"
+    printf '#!/bin/bash\necho "claude $*" >> "$STUB/log"; cp "%s" "$PLAN"; echo "{\\"is_error\\":false,\\"result\\":\\"ok\\"}"\n' "$PWD/tests/fixtures/plan_question.json" > "$STUB/bin/claude"; chmod +x "$STUB/bin/claude"
+    export REPO=x/y TOK_1=a VIBECUT_DIR="$STUB" TG_BOT_TOKEN_1=t TG_CHAT_ID=1; rm -f /tmp/plan-1.json
+    bash scripts/triage.sh 1 >/dev/null 2>&1; assert_eq 0 $? triage_question_exit0
+    assert_eq 1 "$(grep -c '^claude ' "$STUB/log")" triage_question_no_review
+    assert_eq 1 "$(grep 'sendMessage' "$STUB/log" | grep -c 'Task window')" triage_question_sent
+    echo "$PASS $FAIL" > /tmp/t_counts ); read -r PASS FAIL < /tmp/t_counts
+}

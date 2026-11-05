@@ -43,7 +43,12 @@ def body_of(p, base, doc, nums):
         f'<!-- plan:{base}:{p["id"]} -->'])
 
 def gh(*a):
-    return subprocess.run(['gh', *a], capture_output=True, text=True, check=True).stdout
+    import time
+    for i in range(5):  # GitHub hay từ chối khi tạo dồn (secondary rate limit) → chờ rồi thử lại
+        r = subprocess.run(['gh', *a], capture_output=True, text=True)
+        if r.returncode == 0: return r.stdout
+        sys.stderr.write(r.stderr[-300:]); time.sleep(20 * (i + 1))
+    raise SystemExit('gh lỗi 5 lần')
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('plan'); ap.add_argument('--repo', required=True)
@@ -74,7 +79,7 @@ def main():
         if p['id'] in nums: print(f'{p["id"]}: có rồi #{nums[p["id"]]}'); continue
         args = ['issue', 'create', '-R', a.repo, '--title', title, '--body', b]
         for l in labels: args += ['--label', l]
-        nums[p['id']] = int(gh(*args).strip().rsplit('/', 1)[1]); print(f'{p["id"]} → #{nums[p["id"]]}')
+        nums[p['id']] = int(gh(*args).strip().rsplit('/', 1)[1]); print(f'{p["id"]} → #{nums[p["id"]]}', flush=True); __import__('time').sleep(3)
     print(f'{len(order)} gói')
 
 if __name__ == '__main__':

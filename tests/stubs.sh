@@ -21,9 +21,11 @@ case "$1 $2" in
       case "$a" in
         --add-label) jq --argjson n $n --arg v "$v" 'map(if .number==$n then .labels = ((.labels + ($v|split(","))) | unique_by(.))  else . end)' "$STUB/issues.json" > "$STUB/t" ;;
         --remove-label) jq --argjson n $n --arg v "$v" 'map(if .number==$n then .labels -= ($v|split(",")) else . end)' "$STUB/issues.json" > "$STUB/t" ;;
+        --body) jq --argjson n $n --arg v "$v" 'map(if .number==$n then .body = $v else . end)' "$STUB/issues.json" > "$STUB/t" ;;
         --body-file) jq --argjson n $n --arg v "$(cat "$v")" 'map(if .number==$n then .body = $v else . end)' "$STUB/issues.json" > "$STUB/t" ;;
         *) continue ;;
       esac; mv "$STUB/t" "$STUB/issues.json"; done ;;
+  "run list") echo '[]' | { q=$(val -q); if [ -n "$q" ]; then jq -r "$q"; else cat; fi; } ;;
   *) : ;;
 esac
 G

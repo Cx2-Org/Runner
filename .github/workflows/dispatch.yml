@@ -1,6 +1,6 @@
 name: dispatch
 on:
-  schedule: [{ cron: '*/30 * * * *' }]
+  schedule: [{ cron: '*/10 * * * *' }]
   workflow_dispatch:
 permissions: { actions: write, contents: write }
 concurrency: { group: dispatch }
@@ -24,6 +24,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PRIV_TOKEN: ${{ secrets.VIBECUT_PAT }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
+          TG_BOT_TOKEN_1: ${{ secrets.TG_BOT_TOKEN_1 }}
         run: bash scripts/dispatch.sh
       # Bảng GitHub Projects "CutCut Runner". Không có PROJECT_TOKEN thì bỏ qua.
       - name: board

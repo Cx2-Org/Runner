@@ -55,3 +55,18 @@ order_children() {
     | def lvl($p; $d): if $d > 5 then 0 else ([$c[] | select(.platform == $p) | .depends_on[]? | select(IN($all[])) | 1 + lvl(.; $d + 1)] | max // 0) end;
     $c | map(. + {lvl: lvl(.platform; 0)}) | sort_by(.lvl) | .[] | del(.lvl)' "$1"
 }
+
+# Số issue phải chờ, từ dòng "Chờ: #12, #15" trong body.
+blocked_by() { grep -m1 '^Chờ: ' <<<"$1" | grep -o '#[0-9]*' | tr -d '#'; }
+# Nhắc hàng chờ: queue_alert <đang chờ> <đang chạy> <state json> <epoch> → dòng 1 low|idle|none, dòng 2 state mới.
+# low: chờ ≤ 1, đã từng > 1 (armed), cách lần nhắc trước ≥ 3 giờ. idle: hết sạch, nhắc 1 lần tới khi có việc lại.
+queue_alert() {
+  jq -r --argjson w "$1" --argjson r "$2" --argjson now "$4" '
+    (.last // 0) as $last | (.armed // true) as $armed | (.idle_sent // false) as $idle |
+    if $w > 1 then ["none", {last: $last, armed: true, idle_sent: false}]
+    elif $w == 0 and $r == 0 then
+      if $idle then ["none", .] else ["idle", {last: $now, armed: false, idle_sent: true}] end
+    elif $armed and ($now - $last) >= 10800 then ["low", {last: $now, armed: false, idle_sent: false}]
+    else ["none", {last: $last, armed: $armed, idle_sent: false}] end
+    | .[0], (.[1] | tojson)' <<<"$3"
+}

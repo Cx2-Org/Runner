@@ -19,3 +19,7 @@ Secrets: `CLAUDE_CODE_OAUTH_TOKEN_1`, `_2`, `_3` (3 tài khoản Claude, mỗi a
 | 4 | còn lại (tính năng, test, port) | sonnet |
 
 Loop không ra kết quả (vòng không tick thêm ô nào, hoặc Claude báo `CẦN-MODEL-MẠNH` sau 5 lần sửa cùng một lỗi) → nâng 1 bậc haiku → sonnet → opus. Opus 2 vòng liền vẫn không tick → bỏ.
+
+## Test
+
+`bash tests/run.sh` — hàm thuần ở `scripts/lib.sh`, stub `gh`/`curl`/`claude` qua PATH.

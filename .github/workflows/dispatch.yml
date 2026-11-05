@@ -28,6 +28,13 @@ jobs:
           TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
           TG_BOT_TOKEN_1: ${{ secrets.TG_BOT_TOKEN_1 }}
         run: bash scripts/dispatch.sh
+      # Trạng thái công khai cho trang văn phòng (chỉ số/mã/trạng thái, không tiêu đề) → nhánh `status`.
+      - name: status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRIV_TOKEN: ${{ secrets.VIBECUT_PAT }}
+        run: bash scripts/publish-status.sh || true
       # Bảng GitHub Projects "CutCut Runner". Không có PROJECT_TOKEN thì bỏ qua.
       - name: board
         if: always()

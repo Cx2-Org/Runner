@@ -77,7 +77,11 @@ jobs:
         timeout-minutes: 335
         continue-on-error: true
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 3 tài khoản Claude (claude setup-token mỗi acc) + secret cũ nếu còn; rỗng thì bỏ qua.
+          TOK_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_1 }}
+          TOK_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          TOK_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_3 }}
+          TOK_0: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Build/test iOS sạch lần đầu > 10 phút: nới trần lệnh Bash lên 60 phút để Claude chạy THẲNG, không đẩy nền.
           BASH_DEFAULT_TIMEOUT_MS: '3600000'
           BASH_MAX_TIMEOUT_MS: '3600000'
@@ -87,8 +91,18 @@ jobs:
           # Chỉ cho Claude dùng danh sách lệnh dưới; lệnh ngoài danh sách bị từ chối → Claude ghi BỎ QUA/need-human.
           # ponytail: allowlist tĩnh; thiếu lệnh nào (vd ruby cho xcodeproj) thì thêm vào đây.
           export ALLOWED="Read,Edit,Write,Glob,Grep,Skill,TodoWrite,Agent,Bash(git:*),Bash(gh issue:*),Bash(gh pr view:*),Bash(xcodebuild:*),Bash(xcrun:*),Bash(bash ../runner/scripts/test-ios.sh:*),Bash(cd android && ./gradlew:*),Bash(./gradlew:*),Bash(date:*),Bash(jq:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(ruby:*),Bash(python3:*),Bash(adb:*),Bash(open:*),Bash(screencapture:*),Bash(pkill:*),Bash(mkdir:*),Bash(cp:*),Bash(sleep:*),Bash(sips:*),Bash(axe:*)"
+          toks=(); for t in "$TOK_1" "$TOK_2" "$TOK_3" "$TOK_0"; do [ -n "$t" ] && toks+=("$t"); done
+          [ ${#toks[@]} -gt 0 ] || { echo "thiếu secret CLAUDE_CODE_OAUTH_TOKEN_1..3"; exit 1; }
+          # Rải issue đều cho các tài khoản; acc hết hạn mức thì đổi acc kế tiếp, hết cả thì dừng. Không in token.
+          ti=$(( ISSUE % ${#toks[@]} )); tried=0
           while :; do
-            bash ../runner/scripts/work-issue.sh || { echo "hết hạn mức Claude, dừng runner"; break; }
+            export CLAUDE_CODE_OAUTH_TOKEN="${toks[$ti]}"
+            if ! bash ../runner/scripts/work-issue.sh; then
+              tried=$((tried + 1))
+              [ $tried -ge ${#toks[@]} ] && { echo "hết hạn mức cả ${#toks[@]} tài khoản Claude, dừng runner"; break; }
+              ti=$(( (ti + 1) % ${#toks[@]} )); echo "tài khoản hết hạn mức → đổi sang tài khoản #$((ti + 1))"; continue
+            fi
+            tried=0
             [ $(( DEADLINE - $(date +%s) )) -lt 1800 ] && { echo "còn dưới 30 phút, không nhận thêm"; break; }
             next=$(bash ../runner/scripts/claim-next.sh); [ -n "$next" ] || { echo "hết issue chờ"; break; }
             export ISSUE=$next; echo "nhận tiếp issue #$ISSUE"

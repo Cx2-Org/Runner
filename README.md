@@ -7,7 +7,7 @@ GitHub Actions chạy Claude Code làm checklist trong issue của repo private.
 - `platforms.json` — máy chạy + lệnh test từng nền tảng. Thêm nền tảng = thêm 1 dòng.
 - `prompt.md` — luật cho Claude. Việc nguy hiểm → mở issue `need-human` chờ duyệt.
 
-Secrets: `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`), `VIBECUT_PAT` (fine-grained: Contents/Issues/Pull requests RW).
+Secrets: `CLAUDE_CODE_OAUTH_TOKEN_1`, `_2`, `_3` (3 tài khoản Claude, mỗi acc `claude setup-token`; issue rải đều, acc hết hạn mức tự đổi acc kế; `CLAUDE_CODE_OAUTH_TOKEN` cũ vẫn nhận), `VIBECUT_PAT` (fine-grained: Contents/Issues/Pull requests RW).
 
 ## Chọn model cho từng issue
 

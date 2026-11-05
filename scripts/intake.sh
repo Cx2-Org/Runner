@@ -28,6 +28,11 @@ while IFS= read -r m; do
     --data-urlencode text="Đã nhận, đang phân tích → ${url##*/} ($url)" \
     --data-urlencode reply_parameters="{\"message_id\":$msg}" -d disable_web_page_preview=true || true
 done < <(tg_parse_giao "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID")
+for msg in $(tg_parse_giao_empty "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID"); do
+  curl -s -m 15 -o /dev/null "$api/sendMessage" --data-urlencode chat_id="$TG_CHAT_ID" ${TG_THREAD_ID:+-d message_thread_id=$TG_THREAD_ID} \
+    --data-urlencode text="Ghi kèm việc nha: /giao <việc cần làm>, vd /giao thêm nút xoá nhạc ở iOS và Android" \
+    --data-urlencode reply_parameters="{\"message_id\":$msg}" || true
+done
 [ "$ack" -gt 0 ] && curl -s -m 15 -o /dev/null "$api/getUpdates?offset=$ack&timeout=0" || true
 rm -f "$upd"
 echo "intake: $n_new việc mới"

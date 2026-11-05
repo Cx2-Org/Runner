@@ -79,3 +79,9 @@ dep_done() {
 }
 # Còn phải chờ issue nào (in số, rỗng = được làm). blocked_open <repo> <body>
 blocked_open() { local b; for b in $(blocked_by "$2"); do dep_done "$1" "$b" || echo "$b"; done; }
+# Tin /giao trống (quên ghi việc) đúng chat + topic → in message_id để nhắc cách dùng.
+tg_parse_giao_empty() {
+  jq -r --arg c "$2" --arg t "$3" '.result[] | .message // empty
+    | select((.chat.id|tostring) == $c and ((.message_thread_id // "")|tostring) == $t)
+    | select((.text // "") | test("^/giao(@[A-Za-z0-9_]+)?\\s*$")) | .message_id' "$1"
+}

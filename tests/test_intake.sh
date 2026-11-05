@@ -28,3 +28,7 @@ test_intake_create_fail_no_ack() {
     assert_eq 1 "$(grep -c 'offset=100' "$STUB/log")" intake_fail_ack_before
     echo "$PASS $FAIL" > /tmp/t_counts ); read -r PASS FAIL < /tmp/t_counts
 }
+test_tg_parse_empty() {
+  source scripts/lib.sh
+  assert_eq 13 "$(tg_parse_giao_empty tests/fixtures/tg_updates.json -1004420681690 461)" parse_empty_ids
+}

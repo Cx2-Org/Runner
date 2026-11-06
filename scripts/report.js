@@ -68,8 +68,6 @@ function morning(d) {
   <section><h2>✅ Đã xong 24 giờ</h2>${d.done && d.done.length ? `<table><tr><th>Việc</th><th>Bot</th><th class="n">Điểm</th><th class="n">Chi phí</th></tr>
     ${d.done.map(x => `<tr><td>${issueLink(d.repo, x.number)} ${esc(x.title)}</td><td>${BOT[x.bot] || ''}</td><td class="n ${scoreCls(x.score)}">${x.score != null ? x.score + '/10' : '–'}${x.conf != null ? `<br><span class="pill">${x.conf}%</span>` : ''}</td><td class="n">${money(x.cost)}</td></tr>`).join('')}</table>` : '<p class="empty">Chưa có việc xong</p>'}</section>
   ${leaderboard(d.leaderboard)}
-  <section><h2>⚙️ Đang chạy</h2>${list(d.running, x => `<div class="task">${BOT[x.bot] || '🤖'} ${issueLink(d.repo, x.number)} ${esc(x.title)}</div>`)}</section>
-  <section><h2>📋 Còn lại theo nhánh</h2><table>${(d.byBase || []).map(b => `<tr><td><code>${esc(b.base)}</code></td><td class="n">${b.count} việc</td></tr>`).join('')}</table></section>
   <section><h2>🚧 Kẹt, cần mày xem</h2>${list(d.human, x => `<div class="task">${issueLink(d.repo, x.number)} ${esc(x.title)}</div>`)}</section>`);
 }
 

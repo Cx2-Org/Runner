@@ -64,9 +64,8 @@ rm -rf "$w"
 best=$(jq -r '[.bots[] | select(.ptsPerUsd != null)][0] | if . then "\(.bot) — \(.ptsPerUsd) điểm/$" else empty end' <<<"$lb7" 2>/dev/null)
 case "$best" in "Captain Queenie"*) bi="👩‍✈️" ;; "Iron Man"*) bi="🦾" ;; "Spider Man"*) bi="🕷" ;; *) bi="" ;; esac
 tg --file /tmp/bao-cao-sang.html "☀️ **Báo cáo sáng $(TZ=Asia/Ho_Chi_Minh date +%d/%m)**
-✅ Xong **$n_done** · ⚙️ Đang chạy **$n_run** · 📋 Còn **$n_left** · 🚧 Kẹt **$n_human**
-$(LC_ALL=C printf '💰 Chi phí 24h: **$%.2f**' "$cost24")${best:+
-🏆 Hiệu quả nhất 7 ngày: $bi **$best**}${new_ideas:+
-💡 **Đề xuất mới:**$new_ideas
-👉 /duyet <số> để làm · /bo <số> để bỏ}"
+✅ Xong $n_done · ⚙️ Chạy $n_run · 📋 Còn $n_left · 🚧 Kẹt $n_human
+$(LC_ALL=C printf '💰 24h: $%.2f' "$cost24")${best:+ · 🏆 $bi $best}${new_ideas:+
+💡 Đề xuất:$new_ideas
+👉 /duyet <số> · /bo <số>}"
 echo "báo cáo sáng: xong $n_done, đề xuất $(wc -w <<<"$new_ideas")"

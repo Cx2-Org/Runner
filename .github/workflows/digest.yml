@@ -1,0 +1,20 @@
+name: digest
+# Mỗi 3 giờ (9h, 12h, 15h, 18h, 21h, 0h, 3h, 6h giờ VN; 8h đã có báo cáo sáng): tóm tắt 2 dòng qua Telegram.
+on:
+  schedule: [{ cron: '0 2-23/3 * * *' }]
+  workflow_dispatch:
+concurrency: { group: digest }
+permissions: { contents: read }
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.VIBECUT_PAT }}
+      REPO: nguyenphp/vibecut
+      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+      TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
+      TG_BOT_TOKEN_1: ${{ secrets.TG_BOT_TOKEN_1 }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/digest.sh

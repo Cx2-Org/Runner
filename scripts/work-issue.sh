@@ -45,7 +45,7 @@ while :; do
   # Output chỉ ghi ra file — KHÔNG in console.
   # Watchdog trong job: Claude không in gì 65 phút (> trần 1 lệnh Bash 60 phút) → giết, mở phiên mới.
   # Bỏ chặn quyền nhưng CẤM CỨNG lệnh không đảo ngược được: push main/force, merge PR, gọi API/curl ra ngoài, đụng secret.
-  run_with_idle_kill 3900 "../claude-$round.jsonl" -- claude -p "$(cat ../runner/prompt.md)" --model "$MODEL" \
+  run_with_idle_kill 3900 "../claude-$round.jsonl" -- claude -p "$(cat ../runner/prompt.md)${NUDGE:+$'\n\n'$NUDGE}" --model "$MODEL" \
     --dangerously-skip-permissions --add-dir /tmp --output-format stream-json --verbose \
     --disallowedTools "Bash(git push origin main*)" "Bash(git push origin HEAD:main*)" "Bash(git push --force*)" \
       "Bash(git push -f*)" "Bash(git push origin desktop/*)" "Bash(git push origin HEAD:desktop/*)" "Bash(gh pr merge*)" "Bash(gh api*)" "Bash(gh secret*)" "Bash(gh repo*)" "Bash(curl*)" \
@@ -76,8 +76,12 @@ while :; do
         opus) stuck=$(( ${stuck:-0} + 1 )); [ "$stuck" -ge 2 ] && break ;;
       esac
       echo "issue #$ISSUE: loop không ra kết quả → $MODEL"
+    elif [ "${nudged:-0}" = 0 ]; then
+      # Phiên dừng giữa chừng không commit gì (hỏi lại "task là gì", "chờ chạy nền xong"…) → nhắc 1 lần rồi mới coi là kẹt.
+      nudged=1; echo "issue #$ISSUE: phiên dừng sớm không làm gì → nhắc làm tiếp"
+      NUDGE="LƯU Ý: phiên trước của bạn DỪNG GIỮA CHỪNG mà không commit gì. Trả lời cuối của nó: \"$(jq -r '.result // ""' "../claude-$round.json" 2>/dev/null | head -c 600)\". Không ai trả lời câu hỏi và không có gì chạy nền để chờ — tự đọc issue #$ISSUE rồi LÀM TIẾP ngay, chạy lệnh THẲNG và chờ kết quả."
     else break; fi
-  else stuck=0; fi
+  else stuck=0; NUDGE=""; fi
 done
 
 # Báo cáo.

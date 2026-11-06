@@ -1,0 +1,31 @@
+name: shots
+# Gửi lại ảnh chụp của issue đã chạy xong vào Telegram (ảnh repo private không hiện trên app GitHub).
+on:
+  workflow_dispatch:
+    inputs:
+      issues: { description: 'Số issue, cách nhau dấu cách (vd "184 190")', required: true }
+permissions: { contents: read }
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+      TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
+      TG_BOT_TOKEN_1: ${{ secrets.TG_BOT_TOKEN_1 }}
+      BOT_NO: '1'
+      GH_TOKEN: ${{ secrets.VIBECUT_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: runner }
+      - uses: actions/checkout@v4
+        with: { repository: nguyenphp/vibecut, token: '${{ secrets.VIBECUT_PAT }}', ref: ci-shots, path: shots, fetch-depth: 1 }
+      - name: gửi
+        env: { ISSUES: '${{ inputs.issues }}' }
+        run: |
+          for n in $ISSUES; do
+            n=${n//[^0-9]/}; [ -n "$n" ] && [ -d "shots/issue-$n" ] || { echo "#$n: không có ảnh"; continue; }
+            d=$(ls -d shots/issue-$n/*/ | sort | tail -1)   # lượt chạy mới nhất
+            t=$(gh issue view "$n" -R nguyenphp/vibecut --json title -q .title 2>/dev/null)
+            bash runner/scripts/tg-album.sh "📸 #$n — $t" "$d"*.png; echo "#$n: đã gửi"
+          done

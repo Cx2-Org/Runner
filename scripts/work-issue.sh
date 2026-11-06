@@ -104,7 +104,10 @@ if ls /tmp/shots/*.png >/dev/null 2>&1; then
       n=$(basename "$f"); cap=$(cat "${f%.png}.md" 2>/dev/null)
       shots="$shots"$'\n\n'"**${cap:-$n}**"$'\n'"![$n](https://github.com/$REPO/blob/ci-shots/$dir/$n?raw=true)"
     done
+    shots="$shots"$'\n\n'"📁 [Cả thư mục ảnh](https://github.com/$REPO/tree/ci-shots/$dir) · ảnh cũng gửi vào Telegram (app GitHub không hiện ảnh repo private)"
   fi
+  # Ảnh repo private chỉ hiện trong trình duyệt đã đăng nhập → gửi thẳng album vào Telegram cho xem được mọi nơi.
+  bash ../runner/scripts/tg-album.sh "📸 #$ISSUE — $title" /tmp/shots/*.png
 fi
 # Chi phí = tổng total_cost_usd mọi vòng (giá quy đổi API; gói thuê bao không trừ tiền thật) — dòng cố định để bảng xếp hạng đọc.
 cost=$(jq -s 'map(.total_cost_usd // 0) | add // 0' ../claude-*.json 2>/dev/null || echo 0)

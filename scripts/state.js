@@ -3,7 +3,7 @@
 'use strict';
 
 const BOTS = [
-  { label: 'bot:queenie', name: 'Captain Queenie', role: 'Trưởng nhóm' },
+  { label: 'bot:queenie', name: 'Captain Queenie', role: 'Vợ kiêm sếp' },
   { label: 'bot:ironman', name: 'Iron Man', role: 'Nhân viên' },
   { label: 'bot:spiderman', name: 'Spider Man', role: 'Nhân viên' },
 ];

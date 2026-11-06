@@ -47,7 +47,7 @@ validate_plan() {
     and (.body | test("## Task") and test("- \\[ \\]") and test("## Xong khi"))
     and (.model | IN("opus","sonnet","haiku")))' "$1" >/dev/null 2>&1
 }
-# Bot ít việc nhất theo {"1":n,"2":n,"3":n}; hoà thì ưu tiên 2, 3 rồi 1 (Queenie là trưởng nhóm).
+# Bot ít việc nhất theo {"1":n,"2":n,"3":n}; hoà thì ưu tiên 2, 3 rồi 1 (Queenie là vợ kiêm sếp của Iron Man + Spider Man).
 pick_bot() { jq -r '. as $c | ["2","3","1"] | min_by($c[.] // 0)' <<<"$1"; }
 # Issue con xếp sao cho nền tảng được chờ (depends_on) tạo trước — để biết số # mà ghi "Chờ: #a".
 order_children() {

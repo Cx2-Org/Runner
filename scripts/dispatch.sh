@@ -76,7 +76,7 @@ for n in $(jq -r --arg q "$quiet" '.[] | select(([.labels[].name] | index("ci-ru
     tg "🚧 **#$n đứng hình quá 3 lần** — cần mày xem"; echo "issue #$n: need-human"
   else
     priv issue comment "$n" --body "Runner: khởi động lại (lần $k/3) — job im hơn 180 phút." >/dev/null
-    tg "♻️ **#$n** đứng hình hơn 180 phút, khởi động lại (lần $k/3)"; echo "issue #$n: huỷ run kẹt, lần $k"
+    echo "issue #$n: huỷ run kẹt, lần $k"
   fi
 done
 
@@ -104,7 +104,7 @@ while IFS=$'\t' read -r pr head base; do
   [[ "$head" == *-rebase ]] && [ "$(GH_TOKEN="$PRIV_TOKEN" gh pr view "ci/issue-$n" -R "$PRIVATE_REPO" --json state -q .state 2>/dev/null)" = MERGED ] && continue
   [ "$(priv issue view "$n" --json state -q .state 2>/dev/null)" = CLOSED ] || continue
   if GH_TOKEN="$PRIV_TOKEN" gh pr merge "$pr" -R "$PRIVATE_REPO" --merge >/dev/null 2>&1; then
-    echo "PR #$pr → $base: đã merge"; tg "🔀 **Đã gộp #$n** vào $base (PR #$pr)"
+    echo "PR #$pr → $base: đã merge"
   else
     f=$(mktemp); priv issue view "$n" --json body -q .body > "$f"
     grep -q 'Rebase lên' "$f" || printf '\n- [ ] Rebase lên %s, giải xung đột, chạy lại $TEST_CMD cho xanh\n' "$base" >> "$f"

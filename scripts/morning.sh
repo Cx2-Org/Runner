@@ -38,32 +38,11 @@ if validate_plan "$PLAN"; then
   done < <(jq -c '.children[]' "$PLAN")
 fi
 
-# Dữ liệu → HTML đẹp (scripts/report.js). Điểm/chi phí lấy từ comment **Runner** cuối của từng việc.
-info() { gh issue view "$1" -R "$REPO" --json comments -q '[.comments[].body | select(startswith("**Runner**"))] | last // ""'; }
-done_rows='[]'
-while IFS=$'\t' read -r n t bot; do [ -n "$n" ] || continue
-  r=$(info "$n")
-  done_rows=$(jq --arg n "$n" --arg t "$t" --arg bot "$bot" --arg r "$r" '. + [{number: ($n|tonumber), title: $t, bot: $bot,
-    score: (($r | capture("ĐIỂM: (?<s>[0-9.]+)/10") | .s | tonumber)? // null),
-    conf: (($r | capture("TỰ TIN: (?<c>[0-9]+)%") | .c | tonumber)? // null),
-    cost: (($r | capture("CHI PHÍ: \\$(?<v>[0-9.]+)") | .v | tonumber)? // null)}]' <<<"$done_rows")
-done < <(jq -r '.[] | "\(.number)\t\(.title)\t\(if ([.labels[].name]|index("bot:ironman")) then "Iron Man" elif ([.labels[].name]|index("bot:spiderman")) then "Spider Man" else "Captain Queenie" end)"' <<<"$done_j")
 lb7=$(bash "$R/scripts/leaderboard.sh" 168 2>/dev/null) || lb7='null'; [ -n "$lb7" ] || lb7='null'
 cost24=$(bash "$R/scripts/leaderboard.sh" 24 2>/dev/null | jq '.total.cost' 2>/dev/null); cost24=${cost24:-0}
-ideas=$(gh issue list -R "$REPO" --state open --label de-xuat -L 50 --json number,title) || ideas='[]'
-w=$(mktemp -d); printf '%s' "$done_rows" > "$w/d"; printf '%s' "$open_j" > "$w/o"; printf '%s' "$human_j" > "$w/h"; printf '%s' "$ideas" > "$w/i"; printf '%s' "$lb7" > "$w/l"
-jq -n --slurpfile d "$w/d" --slurpfile o "$w/o" --slurpfile h "$w/h" --slurpfile i "$w/i" --slurpfile l "$w/l" \
-  --arg date "$(TZ=Asia/Ho_Chi_Minh date +%d/%m/%Y)" --arg repo "$REPO" --arg note "$note" \
-  --argjson c "{\"done\":$n_done,\"run\":$n_run,\"left\":$n_left,\"human\":$n_human,\"cost24\":$cost24}" '
-  def botof: if ([.labels[].name]|index("bot:ironman")) then "Iron Man" elif ([.labels[].name]|index("bot:spiderman")) then "Spider Man" else "Captain Queenie" end;
-  {date: $date, repo: $repo, note: $note, counts: $c, done: $d[0], ideas: $i[0], leaderboard: $l[0], human: [$h[0][] | {number, title}],
-   running: [$o[0][] | select([.labels[].name] | index("ci-running")) | {number, title, bot: botof}],
-   byBase: ([$o[0][] | (.body | capture("Nhánh gốc: (?<b>\\S+)").b // "main")] | group_by(.) | map({base: .[0], count: length}) | sort_by(-.count))}' \
-  | node "$R/scripts/report.js" morning > /tmp/bao-cao-sang.html
-rm -rf "$w"
 best=$(jq -r '[.bots[] | select(.ptsPerUsd != null)][0] | if . then "\(.bot) — \(.ptsPerUsd) điểm/$" else empty end' <<<"$lb7" 2>/dev/null)
 case "$best" in "Captain Queenie"*) bi="👩‍✈️" ;; "Iron Man"*) bi="🦾" ;; "Spider Man"*) bi="🕷" ;; *) bi="" ;; esac
-tg --file /tmp/bao-cao-sang.html "☀️ **Báo cáo sáng $(TZ=Asia/Ho_Chi_Minh date +%d/%m)**
+tg "☀️ **Báo cáo sáng $(TZ=Asia/Ho_Chi_Minh date +%d/%m)**
 ✅ Xong $n_done · ⚙️ Chạy $n_run · 📋 Còn $n_left · 🚧 Kẹt $n_human
 $(LC_ALL=C printf '💰 24h: $%.2f' "$cost24")${best:+ · 🏆 $bi $best}${new_ideas:+
 💡 Đề xuất:$new_ideas

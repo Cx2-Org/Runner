@@ -67,7 +67,6 @@ done
 if [ -n "$list" ]; then
   f=$(mktemp); { gh issue view "$ISSUE" -R "$REPO" --json body -q .body; printf '\n\n## Đã tách%s\n' "$list"; } > "$f"
   gh issue edit "$ISSUE" -R "$REPO" --body-file "$f" >/dev/null; rm -f "$f"
-  tg "🧩 **Chia #$ISSUE** thành $(grep -c '^- #' <<<"$list") phần"
 fi
 gh issue edit "$ISSUE" -R "$REPO" --remove-label inbox --add-label planned >/dev/null
 gh issue comment "$ISSUE" -R "$REPO" --body "$(LC_ALL=C printf 'Runner: trưởng nhóm tách việc. CHI PHÍ: $%.2f | MODEL: opus | BOT: queenie' "${TCOST:-0}")" >/dev/null

@@ -49,7 +49,7 @@ while :; do
   rc=$?; grep '"type":"result"' "../claude-$round.jsonl" | tail -1 > "../claude-$round.json"
   l1=$(left); echo "issue #$ISSUE vòng $round ($MODEL): exit=$rc còn $l1 task"
   if [ "$rc" = 124 ]; then
-    idle=$(( ${idle:-0} + 1 )); tg "♻️ **#$ISSUE** im 65 phút, khởi động lại ($idle/3)"
+    idle=$(( ${idle:-0} + 1 )); echo "im 65 phút, khởi động lại ($idle/3)"
     [ "$idle" -ge 3 ] && break
     [ $(( DEADLINE - $(date +%s) )) -lt 1200 ] && break
     continue
@@ -106,10 +106,10 @@ gh issue comment "$ISSUE" -R "$REPO" --body "**Runner** (${PLATFORM})${pr:+ — 
 
 l=$(left)
 if [ "${QUOTA:-0}" = 1 ]; then ic="⏸"; st="hết hạn mức, tạm dừng"; elif [ "$l" = 0 ]; then ic="✅"; st="xong"; elif [ "$l" = "$before" ]; then ic="⚠️"; st="bị kẹt, cần mày xem"; else ic="🔄"; st="xong $((before - l))/$before task, lượt sau làm tiếp"; fi
-# Tin ngắn 2 dòng, không file: trạng thái + điểm/chi phí; chỉ liệt kê task hỏng (chi tiết ở comment issue).
+# Chỉ báo Telegram khi KẸT (xong thì gom vào báo cáo sáng); tin ngắn, không file: trạng thái + điểm/chi phí; chỉ liệt kê task hỏng (chi tiết ở comment issue).
 score=$(grep -m1 -E '^ĐIỂM:' <<<"$summary" | sed -E 's/ĐIỂM: *([0-9.]+\/10) *\| *TỰ TIN: *([0-9]+%)/⭐ \1 · 🎯 \2 · /')
 bad=$(grep -E '^✘ Task' <<<"$summary" | head -5 | sed 's/^✘/❌/')
-tg "$ic **#$ISSUE $st** — $title"$'\n'"$score$(LC_ALL=C printf '💰 $%.2f · ⏱ %d′' "${cost:-0}" "$mins")${bad:+$'\n'$bad}"
+if [ "$ic" = "⚠️" ]; then tg "$ic **#$ISSUE $st** — $title"$'\n'"$score$(LC_ALL=C printf '💰 $%.2f · ⏱ %d′' "${cost:-0}" "$mins")${bad:+$'\n'$bad}"; fi
 if [ "${QUOTA:-0}" = 1 ]; then
   gh issue comment "$ISSUE" -R "$REPO" --body "Runner: hết hạn mức Claude, dừng. Giữ \`ci-run\`, lượt sau làm tiếp." >/dev/null
 elif [ "$l" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null

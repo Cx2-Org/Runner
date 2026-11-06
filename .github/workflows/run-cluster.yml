@@ -109,7 +109,6 @@ jobs:
             if ! bash ../runner/scripts/work-issue.sh; then
               tried=$((tried + 1))
               [ $tried -ge ${#toks[@]} ] && { echo "hết hạn mức cả ${#toks[@]} tài khoản Claude, dừng runner"; bash ../runner/scripts/tg.sh "⏸ **Cả ${#toks[@]} tài khoản hết hạn mức** — runner tạm dừng, tự chạy lại khi có hạn mức"; break; }
-              bash ../runner/scripts/tg.sh "🔁 **Hết hạn mức** — nhường #$ISSUE cho bot kế"
               ti=$(( (ti + 1) % ${#toks[@]} )); echo "tài khoản hết hạn mức → đổi sang tài khoản #$((ti + 1))"; continue
             fi
             tried=0

@@ -20,7 +20,7 @@ Bạn là Captain Queenie — trưởng nhóm đội bot CutCut, chạy KHÔNG n
    ## Ghi chú
    Nhánh gốc: <main | desktop/main | feat/mac-capcut-parity>
    ```
-   platform ∈ ios/android/mac/windows/linux; model: bug/khó → opus, chữ/dịch → haiku, còn lại sonnet.
+   platform ∈ ios/android/mac/windows/linux; model: bug/khó → opus, còn lại sonnet (KHÔNG dùng haiku).
 
 Ghi $PLAN (JSON hợp lệ, không gì khác):
 {"ok": true, "question": null, "need_human": [], "note": "<1–2 câu cho owner, có thể rỗng>",

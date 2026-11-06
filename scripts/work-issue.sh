@@ -25,13 +25,13 @@ tg() { bash ../runner/scripts/tg.sh "$@"; }
 source ../runner/scripts/lib.sh
 idle=0
 
-# Chọn model (công thức ở README): label model:* thắng; bug/perf → opus; documentation/i18n → haiku; còn lại sonnet.
+# Chọn model (công thức ở README): label model:* thắng; bug/perf → opus; tối thiểu sonnet (haiku làm worker không theo prompt: hỏi lại "task là gì" rồi thoát — #92).
 # Loop không ra kết quả → nâng từng bậc (xem dưới vòng lặp).
 labels=",$(gh issue view "$ISSUE" -R "$REPO" --json labels -q '[.labels[].name] | join(",")'),"
 case "$labels" in
-  *,model:opus,*) MODEL=opus ;; *,model:sonnet,*) MODEL=sonnet ;; *,model:haiku,*) MODEL=haiku ;;
+  *,model:opus,*) MODEL=opus ;; *,model:sonnet,*) MODEL=sonnet ;; *,model:haiku,*) MODEL=sonnet ;;
   *,bug,*|*,perf,*) MODEL=opus ;;
-  *,documentation,*|*,i18n,*) MODEL=haiku ;;
+  *,documentation,*|*,i18n,*) MODEL=sonnet ;;
   *) MODEL=sonnet ;;
 esac
 

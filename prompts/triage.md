@@ -20,7 +20,7 @@ KHÔNG sửa code, KHÔNG commit, KHÔNG tạo issue (script làm việc đó).
    <file/skill liên quan, ràng buộc CLAUDE.md>
    ```
    Tiêu đề: `[<nền tảng>] <việc ngắn>`.
-3. Model: bug/perf/khó/kiến trúc → `opus`; chữ/dịch/tài liệu → `haiku`; còn lại (tính năng, test, port) → `sonnet`.
+3. Model: bug/perf/khó/kiến trúc → `opus`; còn lại (tính năng, test, port) → `sonnet`.
 4. Việc NGUY HIỂM (xoá/đổi dữ liệu người dùng, format project đã lưu, migration DB, auth/IAP/thanh toán, R2/CDN/DB
    production, dịch vụ ngoài tính phí, đổi CI/hook) → KHÔNG đưa vào children, đưa vào `need_human`.
 5. Việc mơ hồ tới mức không tách được → `question` = 1 câu hỏi ngắn cho owner, children rỗng.

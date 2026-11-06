@@ -24,6 +24,7 @@ jobs:
         with: { path: runner }
       - name: telegram
         working-directory: runner
+        env: { RUNNER_GH_TOKEN: '${{ github.token }}' }
         run: bash scripts/intake.sh
       - name: còn việc chờ tách?
         id: q
@@ -31,14 +32,16 @@ jobs:
           n=$(gh issue list -R "$REPO" --label inbox --state open -L 20 --json number,labels \
             -q '[.[] | select([.labels[].name] | index("need-human") | not) | .number] | join(" ")')
           echo "list=$n" >> "$GITHUB_OUTPUT"; echo "chờ tách: ${n:-không}"
+          c=$(gh issue list -R "$REPO" --label cuu --state open -L 20 --json number -q '[.[].number] | join(" ")')
+          echo "cuu=$c" >> "$GITHUB_OUTPUT"; echo "chờ gỡ kẹt: ${c:-không}"
       - uses: actions/checkout@v4
-        if: steps.q.outputs.list != ''
+        if: steps.q.outputs.list != '' || steps.q.outputs.cuu != ''
         with: { repository: nguyenphp/vibecut, token: '${{ secrets.VIBECUT_PAT }}', path: vibecut, fetch-depth: 1 }
       - uses: actions/setup-node@v4
-        if: steps.q.outputs.list != ''
+        if: steps.q.outputs.list != '' || steps.q.outputs.cuu != ''
         with: { node-version: '20' }
       - name: trưởng nhóm tách + duyệt
-        if: steps.q.outputs.list != ''
+        if: steps.q.outputs.list != '' || steps.q.outputs.cuu != ''
         working-directory: runner
         env:
           TOK_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_1 }}
@@ -50,5 +53,6 @@ jobs:
           claude plugin marketplace add anthropics/claude-plugins-official >/dev/null
           claude plugin install superpowers@claude-plugins-official >/dev/null || true
           for n in ${{ steps.q.outputs.list }}; do bash scripts/triage.sh "$n" || echo "triage #$n lỗi"; done
+          for n in ${{ steps.q.outputs.cuu }}; do bash scripts/rescue.sh "$n" || echo "rescue #$n lỗi"; done
           # Có việc mới giao → gọi bộ điều phối ngay, khỏi chờ cron.
           GH_TOKEN=${{ github.token }} gh workflow run dispatch.yml -R "$GITHUB_REPOSITORY" || true

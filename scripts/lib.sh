@@ -125,3 +125,22 @@ peak_paused() {
   u=${3-$(usage_5h "$1")}; [ -n "$u" ] || return 1
   awk -v u="$u" -v p="$PEAK_PCT" 'BEGIN{exit !(u >= p)}'
 }
+
+# Nút bấm dưới tin kẹt (cuu:N / lai:N / bo:N), đúng chat → {"id","act","n","msg_id"}.
+tg_parse_cb() {
+  jq -c --arg c "$2" '.result[] | .callback_query // empty | select((.message.chat.id|tostring) == $c)
+    | (.data // "" | capture("^(?<act>cuu|lai|bo):(?<n>[0-9]+)$")) as $d
+    | {id: .id, act: $d.act, n: ($d.n|tonumber), msg_id: .message.message_id}' "$1"
+}
+# Gợi ý gỡ kẹt: trả lời (reply) tin "#N … kẹt" của bot, hoặc "/goiy N <gợi ý>", đúng chat + topic → {"n","text","msg_id","from"}.
+tg_parse_hint() {
+  jq -c --arg c "$2" --arg t "$3" '.result[] | .message // empty
+    | select((.chat.id|tostring) == $c and ((.message_thread_id // "")|tostring) == $t)
+    | (.text // "") as $x | (.reply_to_message // {}) as $r
+    | (if ($x | test("^/goiy(@[A-Za-z0-9_]+)?\\s+#?[0-9]+\\s+\\S"))
+         then ($x | capture("^/goiy(@[A-Za-z0-9_]+)?\\s+#?(?<n>[0-9]+)\\s+(?<t>[\\s\\S]+)$") | {n: (.n|tonumber), text: .t})
+       elif ($r.from.is_bot == true) and (($r.text // "") | test("kẹt")) and ($x | test("^[^/]"))
+         then {n: ($r.text | capture("#(?<n>[0-9]+)").n | tonumber), text: $x}
+       else empty end)
+    + {msg_id: .message_id, from: ([.from.first_name, .from.last_name] | map(select(.)) | join(" "))}' "$1"
+}

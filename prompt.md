@@ -12,7 +12,7 @@ Quy trình — 4 pha, KHÔNG build/test sau từng task (build iOS 15–30 phút
 
 1. PHÂN TÍCH + PLAN (superpowers):
    - Đọc issue: `gh issue view $ISSUE -R $REPO --json title,body,comments`. Task dẫn tới file plan/spec trong repo
-     thì đọc file đó. Comment cũ của runner cho biết lượt trước vướng gì. Đọc CLAUDE.md + skill trong `.claude/skills/`
+     thì đọc file đó. Comment cũ của runner cho biết lượt trước vướng gì. Comment "💡 GỢI Ý GỠ KẸT" (owner) hoặc "🧠 CÁCH GỠ KẸT" (Queenie) mới nhất là CHỈ ĐẠO — làm theo nó trước tiên. Đọc CLAUDE.md + skill trong `.claude/skills/`
      khớp task. Không có người để hỏi nên KHÔNG dùng brainstorming — tự quyết theo CLAUDE.md.
    - Lên plan cho TẤT CẢ task `- [ ]` còn lại (bỏ task đã có comment "BỎ QUA") bằng `superpowers:writing-plans`,
      ghi `/tmp/plan-issue.md` (không commit). Mỗi task trong plan: file sửa, test sẽ viết, cách kiểm bằng mắt.

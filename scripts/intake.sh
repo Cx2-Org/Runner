@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.." || exit 1
 source scripts/lib.sh
 api="https://api.telegram.org/bot${TG_BOT_TOKEN_1}"
 upd=$(mktemp)
-curl -s -m 30 "$api/getUpdates?allowed_updates=%5B%22message%22%5D" > "$upd" || exit 0
+curl -s -m 30 "$api/getUpdates?allowed_updates=%5B%22message%22%2C%22callback_query%22%5D" > "$upd" || exit 0
 jq -e .ok "$upd" >/dev/null 2>&1 || { echo "getUpdates lỗi"; exit 0; }
 # Không đọc được danh sách → dừng, KHÔNG ack (lượt sau đọc lại), kẻo tạo trùng.
 known=$(gh issue list -R "$REPO" --state all --label inbox -L 500 --json body -q '.[].body') || exit 0
@@ -46,6 +46,34 @@ for msg in $(tg_parse_giao_empty "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID"); do
     --data-urlencode text="✍️ Ghi kèm việc nha: /giao <việc cần làm>" \
     --data-urlencode reply_parameters="{\"message_id\":$msg}" || true
 done
+# Gỡ kẹt: nút dưới tin ⚠️ (🧠 Queenie gỡ / 🔁 Chạy lại / 🛑 Bỏ) và gợi ý (trả lời tin kẹt hoặc /goiy N …).
+say() { curl -s -m 15 -o /dev/null "$api/sendMessage" --data-urlencode chat_id="$TG_CHAT_ID" ${TG_THREAD_ID:+-d message_thread_id=$TG_THREAD_ID} \
+  --data-urlencode text="$1" --data-urlencode reply_parameters="{\"message_id\":$2}" || true; }
+requeue=0
+while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  act=$(jq -r .act <<<"$m"); n=$(jq -r .n <<<"$m"); msg=$(jq -r .msg_id <<<"$m")
+  case "$act" in
+    cuu) gh issue edit "$n" -R "$REPO" --add-label cuu >/dev/null && t="🧠 Queenie đang xem #$n, vài phút nữa có cách gỡ" || t="⚠️ Không gắn được nhãn cho #$n" ;;
+    lai) gh issue edit "$n" -R "$REPO" --add-label ci-run --remove-label need-human >/dev/null && { t="🔁 #$n vào lại hàng chờ"; requeue=1; } || t="⚠️ Không gắn lại được #$n" ;;
+    bo)  gh issue close "$n" -R "$REPO" --reason "not planned" --comment "Owner bỏ việc này (nút Bỏ trên Telegram)." >/dev/null && t="🛑 Đã bỏ #$n" || t="⚠️ Không đóng được #$n" ;;
+  esac
+  curl -s -m 15 -o /dev/null "$api/answerCallbackQuery" --data-urlencode callback_query_id="$(jq -r .id <<<"$m")" --data-urlencode text="$t" || true
+  # Gỡ nút để không bấm 2 lần.
+  curl -s -m 15 -o /dev/null "$api/editMessageReplyMarkup" --data-urlencode chat_id="$TG_CHAT_ID" -d message_id="$msg" \
+    --data-urlencode reply_markup='{"inline_keyboard":[]}' || true
+  say "$t" "$msg"
+done < <(tg_parse_cb "$upd" "$TG_CHAT_ID")
+while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  n=$(jq -r .n <<<"$m"); msg=$(jq -r .msg_id <<<"$m")
+  body="💡 **GỢI Ý GỠ KẸT từ $(jq -r .from <<<"$m") — làm theo trước tiên:**"$'\n\n'"$(jq -r .text <<<"$m")"
+  if gh issue comment "$n" -R "$REPO" --body "$body" >/dev/null && gh issue edit "$n" -R "$REPO" --add-label ci-run --remove-label need-human >/dev/null; then
+    requeue=1; say "💡 Đã ghi gợi ý vào #$n, bot làm lại theo hướng này" "$msg"
+  else say "⚠️ Không ghi được gợi ý vào #$n" "$msg"; fi
+done < <(tg_parse_hint "$upd" "$TG_CHAT_ID" "$TG_THREAD_ID")
+# Có việc vào lại hàng chờ → gọi bộ điều phối ngay (token của repo runner, không phải PAT vibecut).
+[ "$requeue" = 1 ] && [ -n "${RUNNER_GH_TOKEN:-}" ] && GH_TOKEN=$RUNNER_GH_TOKEN gh workflow run dispatch.yml -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
 [ "$ack" -gt 0 ] && curl -s -m 15 -o /dev/null "$api/getUpdates?offset=$ack&timeout=0" || true
 rm -f "$upd"
 echo "intake: $n_new việc mới"

@@ -1,7 +1,7 @@
 {
   "_limits": {
     "total": 15,
-    "macos-15-intel": 4,
+    "macos-15-intel": 5,
     "ubuntu-latest": 12,
     "windows-latest": 4
   },

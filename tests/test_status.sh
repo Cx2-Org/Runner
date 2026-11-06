@@ -4,4 +4,6 @@ test_status_public() {
   assert_eq D02 "$(jq -r '.bots[1].jobs[0].code' <<<"$out")" status_code
   assert_eq 0 "$(grep -c 'BÍ MẬT' <<<"$out")" status_no_private_text
   assert_eq code "$(jq -r '.bots[1].state' <<<"$out")" status_phase
+  assert_eq linux "$(jq -r ".machines[0].platform" <<<"$out")" status_machine_platform
+  assert_eq D02 "$(jq -r ".machines[0].code" <<<"$out")" status_machine_code
 }

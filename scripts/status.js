@@ -2,6 +2,8 @@
 // KHÔNG tiêu đề, KHÔNG nội dung comment (repo public). Dùng: node status.js < raw.json > status.json
 'use strict';
 const S = require('./state');
+// Nền tảng từ đầu tiêu đề: [ios] / [desktop/linux] / [mac/ios]… (chỉ lấy tên nền tảng, không lộ tiêu đề).
+const plat = t => ((/^\[(?:[^\]\/]+\/)?(ios|android|mac|windows|linux)\]/.exec(t || '') || [])[1]) || '';
 const code = t => ((/\]\s+([A-Z]{1,3}\d{1,3}[a-z]?)\b/.exec(t || '') || [])[1]) || '';
 let raw = ''; process.stdin.on('data', d => raw += d).on('end', () => {
   const r = JSON.parse(raw), s = S.buildState(r);
@@ -10,9 +12,10 @@ let raw = ''; process.stdin.on('data', d => raw += d).on('end', () => {
   const l24 = lb(r.lb24), l7 = lb(r.lb7);
   const out = {
     at: s.at,
-    bots: s.bots.map(b => ({ name: b.name, role: b.role, state: b.state, jobs: b.jobs.map(j => ({ number: j.number, code: code(j.title),
+    bots: s.bots.map(b => ({ name: b.name, role: b.role, state: b.state, jobs: b.jobs.map(j => ({ number: j.number, code: code(j.title), platform: plat(j.title),
       phase: j.phase, progress: j.progress, model: j.model, machine: j.machine && { os: j.machine.os, startedAt: j.machine.startedAt, status: j.machine.status } })) })),
-    machines: s.machines.map(m => ({ issue: m.issue, os: m.os, status: m.status, startedAt: m.startedAt })),
+    machines: s.machines.map(m => { const j = s.bots.flatMap(b => b.jobs.map(x => ({ ...x, bot: b.name }))).find(x => String(x.number) === String(m.issue));
+      return { issue: m.issue, os: m.os, status: m.status, startedAt: m.startedAt, platform: j ? plat(j.title) : '', code: j ? code(j.title) : '', bot: j ? j.bot : '' }; }),
     queue: { waiting: s.queue.waiting, blocked: s.queue.blocked, ready: s.queue.ready, next: s.queue.next.map(i => ({ number: i.number, code: code(i.title), bot: i.bot })) },
     done: s.done.map(d => ({ number: d.number, code: code(d.title), bot: d.bot, closedAt: d.closedAt, score: d.score, confidence: d.confidence, cost: costOf(d.number) })),
     // Chi phí giá API quy đổi (gói thuê bao không trừ tiền thật): tổng + từng bot, 24 giờ và 7 ngày.

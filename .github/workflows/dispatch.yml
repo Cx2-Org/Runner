@@ -27,6 +27,9 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
           TG_BOT_TOKEN_1: ${{ secrets.TG_BOT_TOKEN_1 }}
+          TOK_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_1 }}
+          TOK_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          TOK_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_3 }}
         run: bash scripts/dispatch.sh
       # Trạng thái công khai cho trang văn phòng (chỉ số/mã/trạng thái, không tiêu đề) → nhánh `status`.
       - name: status

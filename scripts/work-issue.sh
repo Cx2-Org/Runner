@@ -37,6 +37,8 @@ esac
 # ponytail: thôi khi 1 vòng không có commit lẫn tick nào (task còn lại đều BỎ QUA / bế tắc hạ tầng).
 round=0
 while :; do
+  # 7h–18h mà acc đã dùng ≥85% phiên 5h → nghỉ như hết hạn mức (job nhường acc khác / dừng), chừa cho owner.
+  if peak_paused "$CLAUDE_CODE_OAUTH_TOKEN"; then echo "acc #${BOT_NO:-?} ≥85% phiên 5h trong giờ hành chính → nghỉ"; QUOTA=1; PEAK=1; break; fi
   round=$((round + 1)); c0=$(git rev-list --count HEAD); l0=$(left)
   # Output chỉ ghi ra file — KHÔNG in console.
   # Watchdog trong job: Claude không in gì 65 phút (> trần 1 lệnh Bash 60 phút) → giết, mở phiên mới.
@@ -111,7 +113,7 @@ score=$(grep -m1 -E '^ĐIỂM:' <<<"$summary" | sed -E 's/ĐIỂM: *([0-9.]+\/10
 bad=$(grep -E '^✘ Task' <<<"$summary" | head -5 | sed 's/^✘/❌/')
 if [ "$ic" = "⚠️" ]; then tg "$ic **#$ISSUE $st** — $title"$'\n'"$score$(LC_ALL=C printf '💰 $%.2f · ⏱ %d′' "${cost:-0}" "$mins")${bad:+$'\n'$bad}"; fi
 if [ "${QUOTA:-0}" = 1 ]; then
-  gh issue comment "$ISSUE" -R "$REPO" --body "Runner: hết hạn mức Claude, dừng. Giữ \`ci-run\`, lượt sau làm tiếp." >/dev/null
+  gh issue comment "$ISSUE" -R "$REPO" --body "Runner: ${PEAK:+tài khoản đã dùng ≥85% phiên 5h trong giờ 7h–18h, }hết hạn mức Claude, dừng. Giữ \`ci-run\`, lượt sau làm tiếp." >/dev/null
 elif [ "$l" = 0 ]; then gh issue close "$ISSUE" -R "$REPO" --comment "Xong hết task.${pr:+ PR: $pr}" >/dev/null
 elif [ "$l" = "$before" ]; then
   # Không tick thêm ô nào → gỡ ci-run, kẻo bị nhặt lại đốt hạn mức vô ích.

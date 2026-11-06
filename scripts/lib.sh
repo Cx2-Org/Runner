@@ -101,3 +101,21 @@ tg_parse_cmd() {
     | {cmd: ($x | capture("^/(?<c>duyet|bo)").c), nums: [$x | scan("#?([0-9]+)") | .[0] | tonumber], msg_id: .message_id}
     | select(.nums | length > 0)' "$1"
 }
+
+# Hạn mức phiên 5 giờ của 1 tài khoản Claude (0..1), đọc header anthropic-ratelimit-unified-5h-utilization từ 1 lượt gọi
+# siêu nhỏ (haiku, 1 token). Không đọc được → in rỗng. usage_5h <oauth token>
+usage_5h() {
+  curl -s -o /dev/null -D - --max-time 20 https://api.anthropic.com/v1/messages \
+    -H "Authorization: Bearer $1" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: oauth-2025-04-20" -H "content-type: application/json" \
+    -d '{"model":"claude-haiku-5-5","max_tokens":1,"system":"You are Claude Code, Anthropic'"'"'s official CLI for Claude.","messages":[{"role":"user","content":"hi"}]}' 2>/dev/null \
+    | tr -d '\r' | awk -F': *' 'tolower($1)=="anthropic-ratelimit-unified-5h-utilization"{print $2}'
+}
+# Giờ hành chính VN (7h–18h) mà tài khoản đã dùng ≥85% phiên 5h → tạm nghỉ, chừa hạn mức cho owner. exit 0 = phải nghỉ.
+# Không đọc được hạn mức thì cho chạy (fail-open). peak_paused <oauth token> [giờ VN, để test] [mức dùng, để test]
+PEAK_FROM=7; PEAK_TO=18; PEAK_PCT=0.85
+peak_paused() {
+  local h u; h=${2:-$(TZ=Asia/Ho_Chi_Minh date +%H)}; h=$((10#$h))
+  [ "$h" -ge "$PEAK_FROM" ] && [ "$h" -lt "$PEAK_TO" ] || return 1
+  u=${3-$(usage_5h "$1")}; [ -n "$u" ] || return 1
+  awk -v u="$u" -v p="$PEAK_PCT" 'BEGIN{exit !(u >= p)}'
+}

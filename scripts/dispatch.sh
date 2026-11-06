@@ -33,6 +33,9 @@ total=0
 while read -r os; do [ -n "$os" ] && uinc "$os" && total=$((total + 1)); done \
   < <(jq -r '.[] | split(" ")[1] // "?"' <<<"$active")
 max_total=$(lim total)
+# 7h–18h: acc nào đã dùng ≥85% phiên 5h thì nghỉ; cả 3 cùng nghỉ → không mở máy mới (job đang chạy tự dừng ở vòng sau).
+free=0; n=0; for v in TOK_1 TOK_2 TOK_3; do [ -n "${!v:-}" ] || continue; n=$((n + 1)); u=$(usage_5h "${!v}" || true); echo "acc ${v#TOK_}: phiên 5h dùng ${u:-?}"; peak_paused "" "" "$u" || free=$((free + 1)); done
+if [ "$n" -gt 0 ] && [ "$free" = 0 ]; then echo "giờ hành chính, cả $n acc ≥85% → không mở máy mới"; max_total=0; fi
 echo "đang chạy $total/$max_total job"
 
 while read -r row; do

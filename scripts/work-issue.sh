@@ -18,6 +18,8 @@ if git fetch -q --depth 1 origin "$BRANCH" 2>/dev/null; then git checkout -qB "$
 else git fetch -q --depth 1 origin "$BASE" && git checkout -qB "$BRANCH" FETCH_HEAD; fi
 rm -rf /tmp/shots ../claude-*.json ../claude-*.jsonl ../claude.err; mkdir -p /tmp/shots
 before=$(left)
+# Gắn lại ci-running mỗi lần vào: job đổi tài khoản (hết hạn mức) chạy lại script trên CÙNG issue sau khi lượt trước đã gỡ nhãn → không gắn thì dispatch mở job trùng.
+gh issue edit "$ISSUE" -R "$REPO" --add-label ci-running >/dev/null || true
 title=$(gh issue view "$ISSUE" -R "$REPO" --json title -q .title)
 tg() { bash ../runner/scripts/tg.sh "$@"; }
 source ../runner/scripts/lib.sh

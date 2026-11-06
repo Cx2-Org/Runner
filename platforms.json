@@ -11,7 +11,7 @@
   },
   "mac": {
     "runs_on": "macos-15-intel",
-    "test": "xcodebuild build -project ios/CutCut/CutCut.xcodeproj -scheme CutCutMacSpike -destination 'platform=macOS' -quiet && xcodebuild test -project ios/CutCut/CutCut.xcodeproj -scheme CutCutMacTests -destination 'platform=macOS' -quiet"
+    "test": "bash ../runner/scripts/test-mac.sh"
   },
   "android": {
     "runs_on": "ubuntu-latest",

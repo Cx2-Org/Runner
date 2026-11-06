@@ -18,6 +18,8 @@ let raw = ''; process.stdin.on('data', d => raw += d).on('end', () => {
       return { issue: m.issue, os: m.os, status: m.status, startedAt: m.startedAt, platform: j ? plat(j.title) : '', code: j ? code(j.title) : '', bot: j ? j.bot : '' }; }),
     queue: { waiting: s.queue.waiting, blocked: s.queue.blocked, ready: s.queue.ready, next: s.queue.next.map(i => ({ number: i.number, code: code(i.title), bot: i.bot })) },
     done: s.done.map(d => ({ number: d.number, code: code(d.title), bot: d.bot, closedAt: d.closedAt, score: d.score, confidence: d.confidence, cost: costOf(d.number) })),
+    // Hạn mức Claude từng nick (0..1): phiên 5 giờ, 7 ngày, giờ reset phiên (epoch giây).
+    quota: Object.fromEntries(S.BOTS.map((b, i) => [b.name, (r.quota || {})[String(i + 1)] || null])),
     // Chi phí giá API quy đổi (gói thuê bao không trừ tiền thật): tổng + từng bot, 24 giờ và 7 ngày.
     costs: { total24: (r.lb24 && r.lb24.total && r.lb24.total.cost) || 0, total7: (r.lb7 && r.lb7.total && r.lb7.total.cost) || 0,
       bots: Object.fromEntries(S.BOTS.map(b => [b.name, { cost24: (l24[b.name] || {}).cost || 0, cost7: (l7[b.name] || {}).cost || 0,

@@ -27,6 +27,7 @@ Quy trình — 4 pha, KHÔNG build/test sau từng task (build iOS 15–30 phút
    - Sub agent song song cho các task độc lập (xem mục Sub agent).
 3. TEST 1 LƯỢT → GOM LỖI → FIX HẾT → CHẠY LẠI:
    - Chạy đúng `$TEST_CMD` (gõ nguyên văn, không eval) — build app VÀ toàn bộ unit test.
+     Nếu nó in `CHƯA XONG` (exit 75: bộ test dài hơn trần 1 lệnh) thì gõ lại y nguyên `$TEST_CMD` — nó chạy tiếp phần còn lại, KHÔNG phải lỗi.
    - Đỏ: ghi HẾT lỗi ra `/tmp/bugs.md` (mọi lỗi build + mọi test đỏ, kể cả test cũ), sửa HẾT một lượt theo
      nguyên nhân gốc, rồi chạy lại `$TEST_CMD`. Lặp tới khi XANH toàn bộ. Không dừng vì "khó"; hướng bế tắc thì đổi hướng.
    - Cùng MỘT lỗi sửa 5 lượt vẫn đỏ → commit phần đã xanh, KẾT THÚC phiên, câu trả lời cuối ghi

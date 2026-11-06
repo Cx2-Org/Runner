@@ -105,11 +105,11 @@ tg_parse_cmd() {
 # Hạn mức phiên 5 giờ của 1 tài khoản Claude (0..1), đọc header anthropic-ratelimit-unified-5h-utilization từ 1 lượt gọi
 # siêu nhỏ (haiku, 1 token). Không đọc được → in rỗng. usage_5h <oauth token>
 usage_5h() { quota_hdrs "$1" | awk -F': *' '$1=="anthropic-ratelimit-unified-5h-utilization"{print $2}'; }
-# Header hạn mức (chữ thường) của 1 lượt gọi siêu nhỏ. quota_json <token> → {"h5":0.4,"d7":0.2,"reset5":epoch} (thiếu thì null).
+# Header hạn mức (chữ thường) của 1 lượt gọi siêu nhỏ. quota_json <token> → {"h5":0.4,"d7":0.2,"reset5":epoch,"reset7":epoch} (thiếu thì null).
 quota_json() { quota_hdrs "$1" | awk -F': *' '
   $1=="anthropic-ratelimit-unified-5h-utilization"{h=$2} $1=="anthropic-ratelimit-unified-7d-utilization"{d=$2}
-  $1=="anthropic-ratelimit-unified-5h-reset"{r=$2}
-  END{printf "{\"h5\":%s,\"d7\":%s,\"reset5\":%s}\n", (h==""?"null":h), (d==""?"null":d), (r==""?"null":r)}'; }
+  $1=="anthropic-ratelimit-unified-5h-reset"{r=$2} $1=="anthropic-ratelimit-unified-7d-reset"{r7=$2}
+  END{printf "{\"h5\":%s,\"d7\":%s,\"reset5\":%s,\"reset7\":%s}\n", (h==""?"null":h), (d==""?"null":d), (r==""?"null":r), (r7==""?"null":r7)}'; }
 quota_hdrs() {
   curl -s -o /dev/null -D - --max-time 20 https://api.anthropic.com/v1/messages \
     -H "Authorization: Bearer $1" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: oauth-2025-04-20" -H "content-type: application/json" \
